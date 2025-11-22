@@ -1,0 +1,26 @@
+# E1.1: Llama-8B | TP=1 | 1 GPU - Baseline
+experiment_id: "E1.1"
+description: "Baseline inference with Llama-8B on 1 GPU"
+
+model:
+  name: "meta-llama/Llama-3.1-8B"
+  precision: "bfloat16"
+
+parallelism:
+  tp: 1
+  pp: 1
+  dp_replicate: 1
+  dp_shard: 1
+  ep: 1
+
+data:
+  batch_size: 4
+  seq_len: 8192
+  max_tokens: 128
+
+# Profiling settings
+warmup_iterations: 2
+profile_iterations: 5
+
+# Output directory for traces
+output_dir: "trace_collection/llama-8b-vllm-perlmutter-E1.1"
