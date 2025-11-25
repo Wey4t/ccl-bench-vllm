@@ -26,6 +26,18 @@ if __name__ == "__main__":
     elif metric_name == "comm_comp_overlap":
         from comm_comp_overlap.comm_comp_overlap import metric_cal
         metric_cal_func = metric_cal
+    elif metric_name == "bandwidth_size":
+        from bandwidth_size.bandwidth_size import metric_cal
+        metric_cal_func = metric_cal
+    elif metric_name == "pipeline_bubble_size":
+        from pipeline_bubble_size.pipeline_bubble_size import metric_cal
+        metric_cal_func = metric_cal
+    elif metric_name == "mfu_sm_utilization":
+        from mfu_sm_utilization.mfu_sm_utilization import metric_cal
+        metric_cal_func = metric_cal
+    elif metric_name == "token_to_expert_assignment":
+        from token_to_expert_assignment.token_to_expert_assignment import metric_cal
+        metric_cal_func = metric_cal
     else:
         raise ValueError(f"Unsupported metric name: {metric_name}")
     
