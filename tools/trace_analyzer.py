@@ -124,6 +124,45 @@ class TraceAnalyzer:
             
         return (comm_time / total_duration) * 100.0
 
+    def calculate_bubble_ratio(self) -> float:
+        """
+        Estimate Pipeline Bubble Ratio (%).
+        """
+        if not self.events:
+            return 0.0
+            
+        compute_events = []
+        for event in self.events:
+            if event.get('cat') == 'kernel' and 'nccl' not in event.get('name', '').lower():
+                if 'ts' in event and 'dur' in event:
+                    compute_events.append((event['ts'], event['ts'] + event['dur']))
+        
+        if not compute_events:
+            return 0.0
+            
+        compute_events.sort(key=lambda x: x[0])
+        
+        merged = []
+        if compute_events:
+            curr_start, curr_end = compute_events[0]
+            for next_start, next_end in compute_events[1:]:
+                if next_start < curr_end:
+                    curr_end = max(curr_end, next_end)
+                else:
+                    merged.append((curr_start, curr_end))
+                    curr_start, curr_end = next_start, next_end
+            merged.append((curr_start, curr_end))
+            
+        active_time = sum(end - start for start, end in merged)
+        
+        total_duration = compute_events[-1][1] - compute_events[0][0]
+        
+        if total_duration <= 0:
+            return 0.0
+            
+        idle_time = total_duration - active_time
+        return (idle_time / total_duration) * 100.0
+
     def calculate_sm_efficiency(self) -> float:
         """
         Calculate SM Efficiency (%).
