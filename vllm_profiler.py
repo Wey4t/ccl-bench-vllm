@@ -37,6 +37,7 @@ class VLLMProfiler:
         model_config = self.config['model']
         parallel_config = self.config['parallelism']
 
+        print("[DEBUG] Initializing LLM with disable_log_stats=False")
         llm = LLM(
             model=model_config['name'],
             tensor_parallel_size=parallel_config.get('tp', 1),
