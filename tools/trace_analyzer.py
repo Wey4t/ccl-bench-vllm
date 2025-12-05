@@ -11,13 +11,19 @@ class TraceAnalyzer:
         try:
             with open(self.trace_path, 'r') as f:
                 data = json.load(f)
+                events = []
                 if isinstance(data, dict) and 'traceEvents' in data:
-                    return data['traceEvents']
+                    events = data['traceEvents']
                 elif isinstance(data, list):
-                    return data
+                    events = data
                 else:
                     print(f"Warning: Unexpected trace format in {self.trace_path}")
                     return []
+                
+                print(f"[DEBUG] Loaded trace {self.trace_path} with {len(events)} events")
+                nccl_events = [e for e in events if 'nccl' in e.get('name', '').lower()]
+                print(f"[DEBUG] Found {len(nccl_events)} NCCL events")
+                return events
         except Exception as e:
             print(f"Error loading trace {self.trace_path}: {e}")
             return []

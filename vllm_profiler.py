@@ -152,6 +152,10 @@ class VLLMProfiler:
         # Let's add a check.
         
         if outputs:
+            print(f"[DEBUG] Output count: {len(outputs)}")
+            if len(outputs) > 0:
+                print(f"[DEBUG] First output metrics: {outputs[0].metrics}")
+
             for request_output in outputs:
                 if request_output.metrics:
                     # TTFT: Time to first token (arrival to first token)
