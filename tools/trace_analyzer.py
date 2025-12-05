@@ -24,6 +24,12 @@ class TraceAnalyzer:
                 unique_names = sorted(list(set([e.get('name', 'UNKNOWN') for e in events])))
                 print("[DEBUG] Unique event names (first 50): {}".format(unique_names[:50]))
                 
+                # Check for GPU kernels
+                cuda_events = [e for e in events if 'cuda' in e.get('name', '').lower() or 'kernel' in e.get('name', '').lower()]
+                print("[DEBUG] Found {} CUDA/Kernel events".format(len(cuda_events)))
+                if len(cuda_events) > 0:
+                     print("[DEBUG] First 10 CUDA events: {}".format([e.get('name') for e in cuda_events[:10]]))
+
                 nccl_events = [e for e in events if 'nccl' in e.get('name', '').lower()]
                 print("[DEBUG] Found {} NCCL events".format(len(nccl_events)))
                 return events
