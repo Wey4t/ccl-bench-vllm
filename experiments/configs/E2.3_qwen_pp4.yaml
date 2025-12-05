@@ -5,6 +5,7 @@ experiment:
 model:
   name: "Qwen/Qwen-72B"
   precision: "bfloat16"
+  gpu_memory_utilization: 0.95
 
 parallelism:
   tp: 1
