@@ -153,12 +153,37 @@ class VLLMProfiler:
         ttft_list = []
         tpot_list = []
         
-        # Note: In the current loop structure, we only have access to 'outputs' from the last iteration
-        # because we overwrite it. To fix this, we should have collected outputs inside the loop.
-        # However, since we didn't change the loop above, we can only use the last batch.
-        # But wait, the log showed 0.0s, which means even for the last batch it failed.
-        # Let's add a check.
-        
+        # Try to extract from StatLogger if RequestOutput metrics are missing
+        if outputs and outputs[0].metrics is None and hasattr(llm.llm_engine, 'stat_logger'):
+            print("[DEBUG] Attempting to extract metrics from StatLogger...")
+            logger = llm.llm_engine.stat_logger
+            # Inspect histogram internals
+            if hasattr(logger, 'histogram_time_to_first_token'):
+                h_ttft = logger.histogram_time_to_first_token
+                print("[DEBUG] TTFT Histogram type: {}".format(type(h_ttft)))
+                if hasattr(h_ttft, 'collect'):
+                    samples = h_ttft.collect()[0].samples
+                    # samples is a list of Sample(name, labels, value, timestamp, exemplar)
+                    # We want the sum and count
+                    sum_val = next((s.value for s in samples if s.name.endswith('_sum')), 0)
+                    count_val = next((s.value for s in samples if s.name.endswith('_count')), 0)
+                    if count_val > 0:
+                        avg_ttft = sum_val / count_val
+                        print("[DEBUG] Extracted Avg TTFT from Histogram: {}s".format(avg_ttft))
+                        # Create a dummy list with the average
+                        ttft_list = [avg_ttft] * int(count_val)
+
+            if hasattr(logger, 'histogram_time_per_output_token'):
+                h_tpot = logger.histogram_time_per_output_token
+                if hasattr(h_tpot, 'collect'):
+                    samples = h_tpot.collect()[0].samples
+                    sum_val = next((s.value for s in samples if s.name.endswith('_sum')), 0)
+                    count_val = next((s.value for s in samples if s.name.endswith('_count')), 0)
+                    if count_val > 0:
+                        avg_tpot = sum_val / count_val
+                        print("[DEBUG] Extracted Avg TPOT from Histogram: {}s".format(avg_tpot))
+                        tpot_list = [avg_tpot] * int(count_val)
+
         if outputs:
             print("[DEBUG] Output count: {}".format(len(outputs)))
             if len(outputs) > 0:
@@ -168,6 +193,22 @@ class VLLMProfiler:
                 try:
                     print("[DEBUG] First output metrics: {}".format(outputs[0].metrics))
                 except AttributeError:
+                    print("[DEBUG] First output has no metrics attribute")
+
+            for request_output in outputs:
+                if request_output.metrics:
+                    # TTFT: Time to first token (arrival to first token)
+                    if request_output.metrics.first_token_time is not None and request_output.metrics.arrival_time is not None:
+                        ttft = request_output.metrics.first_token_time - request_output.metrics.arrival_time
+                        ttft_list.append(ttft)
+                    
+                    # TPOT: Time per output token
+                    if request_output.metrics.finished_time is not None and request_output.metrics.first_token_time is not None:
+                        gen_time = request_output.metrics.finished_time - request_output.metrics.first_token_time
+                        output_len = len(request_output.outputs[0].token_ids)
+                        if output_len > 1:
+                            tpot = gen_time / (output_len - 1)
+                            tpot_list.append(tpot)
                     print("[DEBUG] Object has no 'metrics' attribute")
 
             for request_output in outputs:
