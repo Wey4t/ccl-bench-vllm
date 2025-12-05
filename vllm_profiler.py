@@ -84,6 +84,12 @@ class VLLMProfiler:
         for i in range(warmup_iters):
             _ = llm.generate(prompts, sampling_params)
 
+        # Inspect LLM engine internals
+        print("[DEBUG] LLM Engine dir: {}".format(dir(llm.llm_engine)))
+        if hasattr(llm.llm_engine, 'stat_logger'):
+             print("[DEBUG] Stat Logger: {}".format(llm.llm_engine.stat_logger))
+             print("[DEBUG] Stat Logger dir: {}".format(dir(llm.llm_engine.stat_logger)))
+
         # Profiled runs
         profile_iters = self.config.get('profile_iterations', 3)
 

@@ -21,8 +21,9 @@ class TraceAnalyzer:
                     return []
                 
                 print("[DEBUG] Loaded trace {} with {} events".format(self.trace_path, len(events)))
-                if len(events) > 0:
-                    print("[DEBUG] First 10 events: {}".format([e.get('name') for e in events[:10]]))
+                unique_names = sorted(list(set([e.get('name', 'UNKNOWN') for e in events])))
+                print("[DEBUG] Unique event names (first 50): {}".format(unique_names[:50]))
+                
                 nccl_events = [e for e in events if 'nccl' in e.get('name', '').lower()]
                 print("[DEBUG] Found {} NCCL events".format(len(nccl_events)))
                 return events
