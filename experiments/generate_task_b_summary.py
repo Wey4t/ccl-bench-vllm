@@ -69,60 +69,78 @@ def main():
     print(f"Saved summary to {csv_path}")
     print(df.to_string())
 
-    # 2. Generate Plots
-    fig, axes = plt.subplots(2, 3, figsize=(20, 10))
+    # 2. Generate Plots (Individual Files)
     
     # Plot 1: TTFT
-    ax = axes[0, 0]
-    bars = ax.bar(df['config'], df['ttft_ms'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
-    ax.set_ylabel('TTFT (ms)')
-    ax.set_title('Time to First Token (Lower is Better)')
-    ax.bar_label(bars, fmt='%.1f')
+    plt.figure(figsize=(8, 6))
+    bars = plt.bar(df['config'], df['ttft_ms'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
+    plt.ylabel('TTFT (ms)')
+    plt.title('Time to First Token (Lower is Better)')
+    plt.bar_label(bars, fmt='%.1f')
+    plt.tight_layout()
+    plt.savefig("experiments/plot_ttft.png", dpi=300)
+    plt.close()
+    print("Saved experiments/plot_ttft.png")
     
     # Plot 2: TPOT
-    ax = axes[0, 1]
-    bars = ax.bar(df['config'], df['tpot_ms'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
-    ax.set_ylabel('TPOT (ms)')
-    ax.set_title('Time Per Output Token (Lower is Better)')
-    ax.bar_label(bars, fmt='%.1f')
+    plt.figure(figsize=(8, 6))
+    bars = plt.bar(df['config'], df['tpot_ms'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
+    plt.ylabel('TPOT (ms)')
+    plt.title('Time Per Output Token (Lower is Better)')
+    plt.bar_label(bars, fmt='%.1f')
+    plt.tight_layout()
+    plt.savefig("experiments/plot_tpot.png", dpi=300)
+    plt.close()
+    print("Saved experiments/plot_tpot.png")
     
     # Plot 3: Bubble Ratio
-    ax = axes[0, 2]
+    plt.figure(figsize=(8, 6))
     # Filter out E2.1 for Bubble Ratio
     df_pp = df[df['bubble_ratio_pct'] > 0]
     if not df_pp.empty:
-        bars = ax.bar(df_pp['config'], df_pp['bubble_ratio_pct'], color=['#ff7f0e', '#2ca02c'])
-        ax.set_ylabel('Bubble Ratio (%)')
-        ax.set_title('Pipeline Bubble Ratio (Lower is Better)')
-        ax.bar_label(bars, fmt='%.2f')
+        bars = plt.bar(df_pp['config'], df_pp['bubble_ratio_pct'], color=['#ff7f0e', '#2ca02c'])
+        plt.ylabel('Bubble Ratio (%)')
+        plt.title('Pipeline Bubble Ratio (Lower is Better)')
+        plt.bar_label(bars, fmt='%.2f')
     else:
-        ax.text(0.5, 0.5, "No Pipeline Parallelism", ha='center', va='center')
+        plt.text(0.5, 0.5, "No Pipeline Parallelism", ha='center', va='center')
+    plt.tight_layout()
+    plt.savefig("experiments/plot_bubble_ratio.png", dpi=300)
+    plt.close()
+    print("Saved experiments/plot_bubble_ratio.png")
         
     # Plot 4: MFU
-    ax = axes[1, 0]
-    bars = ax.bar(df['config'], df['mfu_pct'], color=['#9467bd', '#8c564b', '#e377c2'])
-    ax.set_ylabel('MFU (%)')
-    ax.set_title('Model FLOPs Utilization (Higher is Better)')
-    ax.bar_label(bars, fmt='%.2f')
+    plt.figure(figsize=(8, 6))
+    bars = plt.bar(df['config'], df['mfu_pct'], color=['#9467bd', '#8c564b', '#e377c2'])
+    plt.ylabel('MFU (%)')
+    plt.title('Model FLOPs Utilization (Higher is Better)')
+    plt.bar_label(bars, fmt='%.2f')
+    plt.tight_layout()
+    plt.savefig("experiments/plot_mfu.png", dpi=300)
+    plt.close()
+    print("Saved experiments/plot_mfu.png")
 
     # Plot 5: Comm Overhead
-    ax = axes[1, 1]
-    bars = ax.bar(df['config'], df['comm_overhead_pct'], color=['#d62728', '#9467bd', '#8c564b'])
-    ax.set_ylabel('Comm Overhead (%)')
-    ax.set_title('Communication Overhead (Lower is Better)')
-    ax.bar_label(bars, fmt='%.2f')
+    plt.figure(figsize=(8, 6))
+    bars = plt.bar(df['config'], df['comm_overhead_pct'], color=['#d62728', '#9467bd', '#8c564b'])
+    plt.ylabel('Comm Overhead (%)')
+    plt.title('Communication Overhead (Lower is Better)')
+    plt.bar_label(bars, fmt='%.2f')
+    plt.tight_layout()
+    plt.savefig("experiments/plot_comm_overhead.png", dpi=300)
+    plt.close()
+    print("Saved experiments/plot_comm_overhead.png")
 
     # Plot 6: SM Efficiency
-    ax = axes[1, 2]
-    bars = ax.bar(df['config'], df['sm_efficiency_pct'], color=['#17becf', '#bcbd22', '#7f7f7f'])
-    ax.set_ylabel('SM Efficiency (%)')
-    ax.set_title('SM Efficiency (Higher is Better)')
-    ax.bar_label(bars, fmt='%.2f')
-    
+    plt.figure(figsize=(8, 6))
+    bars = plt.bar(df['config'], df['sm_efficiency_pct'], color=['#17becf', '#bcbd22', '#7f7f7f'])
+    plt.ylabel('SM Efficiency (%)')
+    plt.title('SM Efficiency (Higher is Better)')
+    plt.bar_label(bars, fmt='%.2f')
     plt.tight_layout()
-    plot_path = "experiments/scaling_analysis.png"
-    plt.savefig(plot_path, dpi=300)
-    print(f"Saved plot to {plot_path}")
+    plt.savefig("experiments/plot_sm_efficiency.png", dpi=300)
+    plt.close()
+    print("Saved experiments/plot_sm_efficiency.png")
 
 if __name__ == "__main__":
     main()
