@@ -46,6 +46,7 @@ class VLLMProfiler:
             max_model_len=self.config['data']['seq_len'],
             gpu_memory_utilization=model_config.get('gpu_memory_utilization', 0.9),
             enforce_eager=model_config.get('enforce_eager', False),
+            disable_log_stats=False,
         )
 
         return llm
