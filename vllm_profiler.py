@@ -37,10 +37,6 @@ class VLLMProfiler:
         model_config = self.config['model']
         parallel_config = self.config['parallelism']
 
-        # Set environment variable to enable vLLM profiler
-        os.environ['VLLM_TORCH_PROFILER_DIR'] = self.output_dir
-        print("[DEBUG] Set VLLM_TORCH_PROFILER_DIR to {}".format(self.output_dir))
-
         print("[DEBUG] Initializing LLM with disable_log_stats=False")
         llm = LLM(
             model=model_config['name'],
@@ -113,27 +109,43 @@ class VLLMProfiler:
         # Start execution trace observer
         et.start()
 
-        # Start vLLM internal profiler (captures distributed workers)
-        print("[Rank {}] Starting vLLM internal profiler...".format(self.rank))
-        llm.llm_engine.start_profile()
+        # Start execution trace observer
+        et.start()
 
-        iteration_times = []
+        # Profiling context
+        with profile(
+            activities=[
+                ProfilerActivity.CPU,
+                ProfilerActivity.CUDA,
+            ],
+            schedule=schedule(
+                wait=0,
+                warmup=0,
+                active=profile_iters,
+                repeat=1
+            ),
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True,
+            on_trace_ready=trace_handler
+        ) as prof:
 
-        for iter_idx in range(profile_iters):
-            start_time = time.perf_counter()
+            iteration_times = []
 
-            # Run inference
-            outputs = llm.generate(prompts, sampling_params)
+            for iter_idx in range(profile_iters):
+                start_time = time.perf_counter()
 
-            end_time = time.perf_counter()
-            iter_time = end_time - start_time
-            iteration_times.append(iter_time)
+                # Run inference
+                outputs = llm.generate(prompts, sampling_params)
 
-            print("[Rank {}] Iteration {}: {:.3f}s".format(self.rank, iter_idx, iter_time))
+                end_time = time.perf_counter()
+                iter_time = end_time - start_time
+                iteration_times.append(iter_time)
 
-        # Stop vLLM internal profiler
-        print("[Rank {}] Stopping vLLM internal profiler...".format(self.rank))
-        llm.llm_engine.stop_profile()
+                print("[Rank {}] Iteration {}: {:.3f}s".format(self.rank, iter_idx, iter_time))
+
+                # Step profiler
+                prof.step()
 
         # Stop execution trace observer
         et.stop()
