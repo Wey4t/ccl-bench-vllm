@@ -25,6 +25,10 @@ class VLLMProfiler:
         self.output_dir = self.config['output_dir']
         os.makedirs(self.output_dir, exist_ok=True)
 
+        # Save configuration to output directory for analysis
+        with open(os.path.join(self.output_dir, "config.yaml"), 'w') as f:
+            yaml.dump(self.config, f)
+
         # Get rank for multi-GPU setup
         self.rank = int(os.environ.get('LOCAL_RANK', 0))
 

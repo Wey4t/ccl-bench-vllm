@@ -13,15 +13,16 @@ from pathlib import Path
 import sys
 
 # Add current directory to path to allow imports if run directly
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add project root to path to allow imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from tools.trace_analyzer import TraceAnalyzer
     from tools.ttft.ttft import metric_cal as cal_ttft
     from tools.tpot.tpot import metric_cal as cal_tpot
     from tools.pipeline_bubble_ratio.pipeline_bubble_ratio import metric_cal as cal_bubble_ratio
-except ImportError:
-    print("Warning: Could not import tools")
+except ImportError as e:
+    print(f"Warning: Could not import tools: {e}")
     TraceAnalyzer = None
 
 
@@ -34,13 +35,16 @@ def collect_metrics(trace_collection_dir):
         if not trace_dir.is_dir():
             continue
 
-        # Read workload card
-        workload_card_path = trace_dir / "workload_card.yaml"
-        if not workload_card_path.exists():
-            continue
+        # Read config
+        config_path = trace_dir / "config.yaml"
+        if not config_path.exists():
+            # Fallback for older runs or different naming
+            config_path = trace_dir / "workload_card.yaml"
+            if not config_path.exists():
+                continue
 
-        with open(workload_card_path, 'r') as f:
-            workload_card = yaml.safe_load(f)
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
 
         # Read timing stats
         timing_stats_path = trace_dir / "timing_stats_0.json"
@@ -50,8 +54,24 @@ def collect_metrics(trace_collection_dir):
         with open(timing_stats_path, 'r') as f:
             timing_stats = json.load(f)
 
-        # Extract key information
-        parallelism = workload_card['Model-executor']['model_plan_parallelization']
+        # Extract key information based on config structure
+        # Handle both new config format and potential legacy format
+        if 'parallelism' in config:
+            # New format
+            parallelism = config['parallelism']
+            model_name = config['model']['name']
+            batch_size = config['data']['batch_size']
+            seq_len = config['data']['seq_len']
+            gpus = parallelism.get('tp', 1) * parallelism.get('pp', 1) * parallelism.get('dp_shard', 1)
+            # Note: Total GPUs might not be explicitly in config, infer from parallelism
+        else:
+            # Legacy format (workload_card)
+            parallelism = config['Model-executor']['model_plan_parallelization']
+            model_name = config['workload']['model']['model_family']
+            batch_size = config['workload']['data']['batch_size']
+            seq_len = config['workload']['data']['seq_len']
+            gpus = config['workload']['hardware']['xpu_spec']['total_count']
+
         
         # New metrics using tools
         ttft_ms = 0.0
@@ -59,9 +79,13 @@ def collect_metrics(trace_collection_dir):
         bubble_ratio = 0.0
         
         try:
-            ttft_ms = cal_ttft(str(trace_dir))
-            tpot_ms = cal_tpot(str(trace_dir))
-            bubble_ratio = cal_bubble_ratio(str(trace_dir))
+            # Check if tools are available
+            if 'cal_ttft' in globals():
+                ttft_ms = cal_ttft(str(trace_dir))
+            if 'cal_tpot' in globals():
+                tpot_ms = cal_tpot(str(trace_dir))
+            if 'cal_bubble_ratio' in globals():
+                bubble_ratio = cal_bubble_ratio(str(trace_dir))
         except Exception as e:
             print(f"Error calculating metrics for {trace_dir.name}: {e}")
 
@@ -72,24 +96,27 @@ def collect_metrics(trace_collection_dir):
         if TraceAnalyzer:
             kineto_trace_path = trace_dir / f"kineto_trace_0.json"
             if kineto_trace_path.exists():
-                analyzer = TraceAnalyzer(str(kineto_trace_path))
-                comm_overhead = analyzer.calculate_comm_overhead()
-                # bubble_ratio is already calculated via tool
-                sm_efficiency = analyzer.calculate_sm_efficiency()
+                try:
+                    analyzer = TraceAnalyzer(str(kineto_trace_path))
+                    comm_overhead = analyzer.calculate_comm_overhead()
+                    # bubble_ratio is already calculated via tool
+                    sm_efficiency = analyzer.calculate_sm_efficiency()
+                except Exception as e:
+                    print(f"Error analyzing trace for {trace_dir.name}: {e}")
 
         result = {
             'experiment': trace_dir.name,
-            'model': workload_card['workload']['model']['model_family'],
-            'tp': parallelism['tp'],
-            'pp': parallelism['pp'],
-            'dp': parallelism['dp_shard'],
+            'model': model_name,
+            'tp': parallelism.get('tp', 1),
+            'pp': parallelism.get('pp', 1),
+            'dp': parallelism.get('dp_shard', 1),
             'ep': parallelism.get('ep', 1),
-            'gpus': workload_card['workload']['hardware']['xpu_spec']['total_count'],
-            'batch_size': workload_card['workload']['data']['batch_size'],
-            'seq_len': workload_card['workload']['data']['seq_len'],
-            'avg_iter_time': timing_stats['avg_iteration_time'],
-            'min_iter_time': timing_stats['min_iteration_time'],
-            'max_iter_time': timing_stats['max_iteration_time'],
+            'gpus': gpus,
+            'batch_size': batch_size,
+            'seq_len': seq_len,
+            'avg_iter_time': timing_stats.get('avg_iteration_time', 0),
+            'min_iter_time': timing_stats.get('min_iteration_time', 0),
+            'max_iter_time': timing_stats.get('max_iteration_time', 0),
             'ttft_ms': ttft_ms,
             'tpot_ms': tpot_ms,
             'comm_overhead_pct': comm_overhead,
@@ -98,8 +125,11 @@ def collect_metrics(trace_collection_dir):
         }
 
         # Calculate throughput
-        tokens_per_iter = result['batch_size'] * result['seq_len']
-        result['throughput_tokens_sec'] = tokens_per_iter / result['avg_iter_time']
+        if result['avg_iter_time'] > 0:
+            tokens_per_iter = result['batch_size'] * result['seq_len']
+            result['throughput_tokens_sec'] = tokens_per_iter / result['avg_iter_time']
+        else:
+            result['throughput_tokens_sec'] = 0
         
         # Calculate MFU (Approximate)
         # MFU = (Throughput * FLOPs_per_token) / (Num_GPUs * Peak_FLOPs_per_GPU)
