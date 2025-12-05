@@ -63,7 +63,7 @@ class VLLMProfiler:
 
     def run_profiled_inference(self):
         """Run vLLM inference with profiling enabled."""
-        print(f"[Rank {self.rank}] Starting profiled inference...")
+        print("[Rank {}] Starting profiled inference...".format(self.rank))
 
         # Create LLM engine
         llm = self.create_llm_engine()
