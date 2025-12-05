@@ -78,7 +78,7 @@ class VLLMProfiler:
 
         # Warm-up runs
         warmup_iters = self.config.get('warmup_iterations', 2)
-        print(f"[Rank {self.rank}] Running {warmup_iters} warmup iterations...")
+        print("[Rank {}] Running {} warmup iterations...".format(self.rank, warmup_iters))
         for i in range(warmup_iters):
             _ = llm.generate(prompts, sampling_params)
 
@@ -86,17 +86,17 @@ class VLLMProfiler:
         profile_iters = self.config.get('profile_iterations', 3)
 
         # Setup PyTorch ET observer
-        et_file = os.path.join(self.output_dir, f"torch_et_{self.rank}.json")
+        et_file = os.path.join(self.output_dir, "torch_et_{}.json".format(self.rank))
         et = ExecutionTraceObserver()
         et.register_callback(et_file)
 
         # Kineto trace handler
         def trace_handler(prof):
-            kineto_file = os.path.join(self.output_dir, f"kineto_trace_{self.rank}.json")
+            kineto_file = os.path.join(self.output_dir, "kineto_trace_{}.json".format(self.rank))
             prof.export_chrome_trace(kineto_file)
-            print(f"[Rank {self.rank}] Saved Kineto trace to {kineto_file}")
+            print("[Rank {}] Saved Kineto trace to {}".format(self.rank, kineto_file))
 
-        print(f"[Rank {self.rank}] Starting profiled iterations...")
+        print("[Rank {}] Starting profiled iterations...".format(self.rank))
 
         # Start execution trace observer
         et.start()
@@ -131,7 +131,7 @@ class VLLMProfiler:
                 iter_time = end_time - start_time
                 iteration_times.append(iter_time)
 
-                print(f"[Rank {self.rank}] Iteration {iter_idx}: {iter_time:.3f}s")
+                print("[Rank {}] Iteration {}: {:.3f}s".format(self.rank, iter_idx, iter_time))
 
                 # Step profiler
                 prof.step()
@@ -139,7 +139,7 @@ class VLLMProfiler:
         # Stop execution trace observer
         et.stop()
         et.unregister_callback()
-        print(f"[Rank {self.rank}] Saved PyTorch ET trace to {et_file}")
+        print("[Rank {}] Saved PyTorch ET trace to {}".format(self.rank, et_file))
 
         # Process metrics from all iterations
         ttft_list = []
@@ -152,9 +152,9 @@ class VLLMProfiler:
         # Let's add a check.
         
         if outputs:
-            print(f"[DEBUG] Output count: {len(outputs)}")
+            print("[DEBUG] Output count: {}".format(len(outputs)))
             if len(outputs) > 0:
-                print(f"[DEBUG] First output metrics: {outputs[0].metrics}")
+                print("[DEBUG] First output metrics: {}".format(outputs[0].metrics))
 
             for request_output in outputs:
                 if request_output.metrics:
@@ -183,14 +183,14 @@ class VLLMProfiler:
             'tpot_p99': sorted(tpot_list)[int(len(tpot_list) * 0.99)] if tpot_list else 0,
         }
 
-        stats_file = os.path.join(self.output_dir, f"timing_stats_{self.rank}.json")
+        stats_file = os.path.join(self.output_dir, "timing_stats_{}.json".format(self.rank))
         with open(stats_file, 'w') as f:
             json.dump(stats, f, indent=2)
 
-        print(f"[Rank {self.rank}] Profiling complete!")
-        print(f"[Rank {self.rank}] Average iteration time: {stats['avg_iteration_time']:.3f}s")
-        print(f"[Rank {self.rank}] Average TTFT: {stats['ttft_avg']:.4f}s")
-        print(f"[Rank {self.rank}] Average TPOT: {stats['tpot_avg']:.4f}s")
+        print("[Rank {}] Profiling complete!".format(self.rank))
+        print("[Rank {}] Average iteration time: {:.3f}s".format(self.rank, stats['avg_iteration_time']))
+        print("[Rank {}] Average TTFT: {:.4f}s".format(self.rank, stats['ttft_avg']))
+        print("[Rank {}] Average TPOT: {:.4f}s".format(self.rank, stats['tpot_avg']))
 
 
 def main():
