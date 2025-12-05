@@ -3,7 +3,7 @@ experiment:
   description: "Hybrid Parallelism: Qwen 72B with TP=2, PP=2"
 
 model:
-  name: "Qwen/Qwen-72B"
+  name: "Qwen/Qwen2.5-32B"
   precision: "bfloat16"
   gpu_memory_utilization: 0.96
   enforce_eager: true
