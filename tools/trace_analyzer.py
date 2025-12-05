@@ -20,9 +20,11 @@ class TraceAnalyzer:
                     print(f"Warning: Unexpected trace format in {self.trace_path}")
                     return []
                 
-                print(f"[DEBUG] Loaded trace {self.trace_path} with {len(events)} events")
+                print("[DEBUG] Loaded trace {} with {} events".format(self.trace_path, len(events)))
+                if len(events) > 0:
+                    print("[DEBUG] First 10 events: {}".format([e.get('name') for e in events[:10]]))
                 nccl_events = [e for e in events if 'nccl' in e.get('name', '').lower()]
-                print(f"[DEBUG] Found {len(nccl_events)} NCCL events")
+                print("[DEBUG] Found {} NCCL events".format(len(nccl_events)))
                 return events
         except Exception as e:
             print(f"Error loading trace {self.trace_path}: {e}")

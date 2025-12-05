@@ -154,7 +154,13 @@ class VLLMProfiler:
         if outputs:
             print("[DEBUG] Output count: {}".format(len(outputs)))
             if len(outputs) > 0:
-                print("[DEBUG] First output metrics: {}".format(outputs[0].metrics))
+                print("[DEBUG] First output type: {}".format(type(outputs[0])))
+                print("[DEBUG] First output dir: {}".format(dir(outputs[0])))
+                print("[DEBUG] First output: {}".format(outputs[0]))
+                try:
+                    print("[DEBUG] First output metrics: {}".format(outputs[0].metrics))
+                except AttributeError:
+                    print("[DEBUG] Object has no 'metrics' attribute")
 
             for request_output in outputs:
                 if request_output.metrics:
