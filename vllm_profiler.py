@@ -17,7 +17,7 @@ import time
 
 
 class VLLMProfiler:
-    def __init__(self, config_path: str):
+    def __init__(self, config_path):
         """Initialize vLLM profiler with experiment configuration."""
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
