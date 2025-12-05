@@ -161,28 +161,24 @@ class VLLMProfiler:
             if hasattr(logger, 'histogram_time_to_first_token'):
                 h_ttft = logger.histogram_time_to_first_token
                 print("[DEBUG] TTFT Histogram type: {}".format(type(h_ttft)))
-                if hasattr(h_ttft, 'collect'):
-                    samples = h_ttft.collect()[0].samples
-                    # samples is a list of Sample(name, labels, value, timestamp, exemplar)
-                    # We want the sum and count
-                    sum_val = next((s.value for s in samples if s.name.endswith('_sum')), 0)
-                    count_val = next((s.value for s in samples if s.name.endswith('_count')), 0)
-                    if count_val > 0:
-                        avg_ttft = sum_val / count_val
-                        print("[DEBUG] Extracted Avg TTFT from Histogram: {}s".format(avg_ttft))
-                        # Create a dummy list with the average
-                        ttft_list = [avg_ttft] * int(count_val)
+                print("[DEBUG] TTFT Histogram content: {}".format(h_ttft))
+                
+                # If it's a dict, it might be {bucket: count} or similar
+                if isinstance(h_ttft, dict):
+                    # Try to find sum and count if stored in dict
+                    # Common prometheus client dict structure?
+                    pass 
+                
+                # If we can't parse it easily, let's just use the manual calculation from outputs if possible
+                # But outputs are failing.
+                
+                # Let's try to see if there are other attributes in logger
+                if hasattr(logger, 'metrics'):
+                     print("[DEBUG] Logger metrics: {}".format(logger.metrics))
 
             if hasattr(logger, 'histogram_time_per_output_token'):
                 h_tpot = logger.histogram_time_per_output_token
-                if hasattr(h_tpot, 'collect'):
-                    samples = h_tpot.collect()[0].samples
-                    sum_val = next((s.value for s in samples if s.name.endswith('_sum')), 0)
-                    count_val = next((s.value for s in samples if s.name.endswith('_count')), 0)
-                    if count_val > 0:
-                        avg_tpot = sum_val / count_val
-                        print("[DEBUG] Extracted Avg TPOT from Histogram: {}s".format(avg_tpot))
-                        tpot_list = [avg_tpot] * int(count_val)
+                print("[DEBUG] TPOT Histogram content: {}".format(h_tpot))
 
         if outputs:
             print("[DEBUG] Output count: {}".format(len(outputs)))
