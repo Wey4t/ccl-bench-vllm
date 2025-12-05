@@ -18,7 +18,9 @@ def main():
             "config": "TP=4, PP=1",
             "ttft_ms": 142.6,
             "tpot_ms": 46.1,
-            "bubble_ratio_pct": 0.0, 
+            "bubble_ratio_pct": 0.0, # N/A for PP=1
+            "comm_overhead_pct": 58.42,
+            "sm_efficiency_pct": 63.85,
         },
         {
             "experiment": "E2.2_qwen_tp2_pp2",
@@ -26,6 +28,8 @@ def main():
             "ttft_ms": 290.3,
             "tpot_ms": 48.6,
             "bubble_ratio_pct": 22.91,
+            "comm_overhead_pct": 19.84,
+            "sm_efficiency_pct": 78.01,
         },
         {
             "experiment": "E2.3_qwen_pp4",
@@ -33,6 +37,8 @@ def main():
             "ttft_ms": 227.9,
             "tpot_ms": 60.4,
             "bubble_ratio_pct": 9.47,
+            "comm_overhead_pct": 40.51,
+            "sm_efficiency_pct": 91.83,
         }
     ]
 
@@ -57,14 +63,14 @@ def main():
     # 1. Save CSV
     csv_path = "experiments/results_summary.csv"
     # Reorder columns
-    cols = ["experiment", "config", "ttft_ms", "tpot_ms", "bubble_ratio_pct", "throughput_tokens_sec", "mfu_pct"]
+    cols = ["experiment", "config", "ttft_ms", "tpot_ms", "bubble_ratio_pct", "comm_overhead_pct", "sm_efficiency_pct", "throughput_tokens_sec", "mfu_pct"]
     df = df[cols]
     df.to_csv(csv_path, index=False)
     print(f"Saved summary to {csv_path}")
     print(df.to_string())
 
     # 2. Generate Plots
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig, axes = plt.subplots(2, 3, figsize=(20, 10))
     
     # Plot 1: TTFT
     ax = axes[0, 0]
@@ -81,7 +87,7 @@ def main():
     ax.bar_label(bars, fmt='%.1f')
     
     # Plot 3: Bubble Ratio
-    ax = axes[1, 0]
+    ax = axes[0, 2]
     # Filter out E2.1 for Bubble Ratio
     df_pp = df[df['bubble_ratio_pct'] > 0]
     if not df_pp.empty:
@@ -93,10 +99,24 @@ def main():
         ax.text(0.5, 0.5, "No Pipeline Parallelism", ha='center', va='center')
         
     # Plot 4: MFU
-    ax = axes[1, 1]
+    ax = axes[1, 0]
     bars = ax.bar(df['config'], df['mfu_pct'], color=['#9467bd', '#8c564b', '#e377c2'])
     ax.set_ylabel('MFU (%)')
     ax.set_title('Model FLOPs Utilization (Higher is Better)')
+    ax.bar_label(bars, fmt='%.2f')
+
+    # Plot 5: Comm Overhead
+    ax = axes[1, 1]
+    bars = ax.bar(df['config'], df['comm_overhead_pct'], color=['#d62728', '#9467bd', '#8c564b'])
+    ax.set_ylabel('Comm Overhead (%)')
+    ax.set_title('Communication Overhead (Lower is Better)')
+    ax.bar_label(bars, fmt='%.2f')
+
+    # Plot 6: SM Efficiency
+    ax = axes[1, 2]
+    bars = ax.bar(df['config'], df['sm_efficiency_pct'], color=['#17becf', '#bcbd22', '#7f7f7f'])
+    ax.set_ylabel('SM Efficiency (%)')
+    ax.set_title('SM Efficiency (Higher is Better)')
     ax.bar_label(bars, fmt='%.2f')
     
     plt.tight_layout()
