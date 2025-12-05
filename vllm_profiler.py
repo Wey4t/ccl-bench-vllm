@@ -160,25 +160,34 @@ class VLLMProfiler:
             # Inspect histogram internals
             if hasattr(logger, 'histogram_time_to_first_token'):
                 h_ttft = logger.histogram_time_to_first_token
-                print("[DEBUG] TTFT Histogram type: {}".format(type(h_ttft)))
-                print("[DEBUG] TTFT Histogram content: {}".format(h_ttft))
-                
-                # If it's a dict, it might be {bucket: count} or similar
+                # Handle dict structure {model_id: Histogram}
                 if isinstance(h_ttft, dict):
-                    # Try to find sum and count if stored in dict
-                    # Common prometheus client dict structure?
-                    pass 
-                
-                # If we can't parse it easily, let's just use the manual calculation from outputs if possible
-                # But outputs are failing.
-                
-                # Let's try to see if there are other attributes in logger
-                if hasattr(logger, 'metrics'):
-                     print("[DEBUG] Logger metrics: {}".format(logger.metrics))
+                    for _, histogram in h_ttft.items():
+                        if hasattr(histogram, 'collect'):
+                            metrics_data = histogram.collect()
+                            if metrics_data and len(metrics_data) > 0:
+                                samples = metrics_data[0].samples
+                                sum_val = next((s.value for s in samples if s.name.endswith('_sum')), 0)
+                                count_val = next((s.value for s in samples if s.name.endswith('_count')), 0)
+                                if count_val > 0:
+                                    avg_ttft = sum_val / count_val
+                                    print("[DEBUG] Extracted Avg TTFT from Histogram: {}s".format(avg_ttft))
+                                    ttft_list.extend([avg_ttft] * int(count_val))
 
             if hasattr(logger, 'histogram_time_per_output_token'):
                 h_tpot = logger.histogram_time_per_output_token
-                print("[DEBUG] TPOT Histogram content: {}".format(h_tpot))
+                if isinstance(h_tpot, dict):
+                    for _, histogram in h_tpot.items():
+                        if hasattr(histogram, 'collect'):
+                            metrics_data = histogram.collect()
+                            if metrics_data and len(metrics_data) > 0:
+                                samples = metrics_data[0].samples
+                                sum_val = next((s.value for s in samples if s.name.endswith('_sum')), 0)
+                                count_val = next((s.value for s in samples if s.name.endswith('_count')), 0)
+                                if count_val > 0:
+                                    avg_tpot = sum_val / count_val
+                                    print("[DEBUG] Extracted Avg TPOT from Histogram: {}s".format(avg_tpot))
+                                    tpot_list.extend([avg_tpot] * int(count_val))
 
         if outputs:
             print("[DEBUG] Output count: {}".format(len(outputs)))
