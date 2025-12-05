@@ -10,7 +10,7 @@ set -e
 echo "=== Setting up Environment ==="
 module load conda 
 conda activate sysml
-pip install pandas
+pip install pandas matplotlib
 
 # Set HuggingFace Cache (Modify if needed)
 export HF_HOME=/pscratch/sd/${USER:0:1}/$USER/huggingface

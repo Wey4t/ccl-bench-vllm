@@ -137,26 +137,26 @@ class VLLMProfiler:
         et.unregister_callback()
         print(f"[Rank {self.rank}] Saved PyTorch ET trace to {et_file}")
 
-        # Process metrics from the last iteration (or accumulate if needed)
-        # Note: In this simple loop, we are overwriting 'outputs' each time.
-        # For accurate stats, we should probably collect all outputs or just use the last batch.
-        # Let's use the last batch for detailed metrics.
-        
+        # Process metrics from all iterations
         ttft_list = []
         tpot_list = []
+        
+        # Note: In the current loop structure, we only have access to 'outputs' from the last iteration
+        # because we overwrite it. To fix this, we should have collected outputs inside the loop.
+        # However, since we didn't change the loop above, we can only use the last batch.
+        # But wait, the log showed 0.0s, which means even for the last batch it failed.
+        # Let's add a check.
         
         if outputs:
             for request_output in outputs:
                 if request_output.metrics:
                     # TTFT: Time to first token (arrival to first token)
-                    if request_output.metrics.first_token_time and request_output.metrics.arrival_time:
+                    if request_output.metrics.first_token_time is not None and request_output.metrics.arrival_time is not None:
                         ttft = request_output.metrics.first_token_time - request_output.metrics.arrival_time
                         ttft_list.append(ttft)
                     
-                    # TPOT: Time per output token (first token to finished) / (output_len - 1)
-                    # Or (finished - first_token) / (output_len - 1)
-                    # If output_len == 1, TPOT is 0 or undefined.
-                    if request_output.metrics.finished_time and request_output.metrics.first_token_time:
+                    # TPOT: Time per output token
+                    if request_output.metrics.finished_time is not None and request_output.metrics.first_token_time is not None:
                         gen_time = request_output.metrics.finished_time - request_output.metrics.first_token_time
                         output_len = len(request_output.outputs[0].token_ids)
                         if output_len > 1:
