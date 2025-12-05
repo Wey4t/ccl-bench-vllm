@@ -10,19 +10,25 @@ except ImportError:
     # Fallback
     from trace_analyzer import TraceAnalyzer
 
-def metric_cal(directory: str) -> float:
+def metric_cal(path: str) -> float:
     """
     Calculate Pipeline Bubble Ratio (%) from trace.
     Supports both Kineto JSON (kineto_trace_0.json) and Nsys CSV (cuda_gpu_trace.csv).
+    Args:
+        path: Directory containing trace files OR path to a specific trace file.
     """
-    # Try nsys CSV first
-    trace_path = os.path.join(directory, "cuda_gpu_trace.csv")
-    if not os.path.exists(trace_path):
-        # Fallback to Kineto
-        trace_path = os.path.join(directory, "kineto_trace_0.json")
+    trace_path = path
+    
+    # If directory, look for default files
+    if os.path.isdir(path):
+        # Try nsys CSV first
+        trace_path = os.path.join(path, "cuda_gpu_trace.csv")
+        if not os.path.exists(trace_path):
+            # Fallback to Kineto
+            trace_path = os.path.join(path, "kineto_trace_0.json")
     
     if not os.path.exists(trace_path):
-        print(f"No trace file found in {directory} (checked cuda_gpu_trace.csv and kineto_trace_0.json)")
+        print(f"No trace file found in or at {path}")
         return 0.0
         
     try:
@@ -31,3 +37,12 @@ def metric_cal(directory: str) -> float:
     except Exception as e:
         print(f"Error calculating Bubble Ratio: {e}")
         return 0.0
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python pipeline_bubble_ratio.py <trace_directory_or_file>")
+        sys.exit(1)
+        
+    path = sys.argv[1]
+    ratio = metric_cal(path)
+    print(f"Pipeline Bubble Ratio: {ratio:.2f}%")
