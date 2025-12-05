@@ -87,7 +87,7 @@ class TraceAnalyzer:
     def calculate_comm_overhead(self) -> float:
         """
         Calculate Communication Overhead (%).
-        Sum of duration of NCCL kernels / Total trace duration.
+        Sum of duration of Communication kernels / Total trace duration.
         """
         if not self.events:
             return 0.0
@@ -96,7 +96,15 @@ class TraceAnalyzer:
         min_ts = float('inf')
         max_ts = float('-inf')
         
+        # Keywords for communication kernels
+        # vllm::cross_device_reduce is used for TP
+        # nccl is used for PP/TP
+        comm_keywords = ['nccl', 'cross_device_reduce', 'ccl', 'all_reduce', 'broadcast', 'reduce_scatter']
+        
         for event in self.events:
+            if event.get('cat') != 'kernel':
+                continue
+                
             if 'ts' not in event or 'dur' not in event:
                 continue
                 
@@ -107,7 +115,7 @@ class TraceAnalyzer:
             min_ts = min(min_ts, ts)
             max_ts = max(max_ts, ts + dur)
             
-            if 'nccl' in name:
+            if any(k in name for k in comm_keywords):
                 comm_time += dur
                 
         total_duration = max_ts - min_ts
@@ -116,28 +124,43 @@ class TraceAnalyzer:
             
         return (comm_time / total_duration) * 100.0
 
-    def calculate_bubble_ratio(self) -> float:
+    def calculate_sm_efficiency(self) -> float:
         """
-        Estimate Pipeline Bubble Ratio (%).
+        Calculate SM Efficiency (%).
+        Defined as: (Total Time GPU is executing ANY kernel) / Total Trace Duration.
+        Handles overlapping kernels by calculating the union of time intervals.
         """
         if not self.events:
             return 0.0
             
-        compute_events = []
-        for event in self.events:
-            if event.get('cat') == 'kernel' and 'nccl' not in event.get('name', '').lower():
-                if 'ts' in event and 'dur' in event:
-                    compute_events.append((event['ts'], event['ts'] + event['dur']))
+        intervals = []
+        min_ts = float('inf')
+        max_ts = float('-inf')
         
-        if not compute_events:
+        for event in self.events:
+            if event.get('cat') != 'kernel':
+                continue
+                
+            if 'ts' not in event or 'dur' not in event:
+                continue
+                
+            start = event['ts']
+            end = start + event['dur']
+            intervals.append((start, end))
+            
+            min_ts = min(min_ts, start)
+            max_ts = max(max_ts, end)
+            
+        if not intervals:
             return 0.0
             
-        compute_events.sort(key=lambda x: x[0])
+        # Calculate union of intervals
+        intervals.sort(key=lambda x: x[0])
         
         merged = []
-        if compute_events:
-            curr_start, curr_end = compute_events[0]
-            for next_start, next_end in compute_events[1:]:
+        if intervals:
+            curr_start, curr_end = intervals[0]
+            for next_start, next_end in intervals[1:]:
                 if next_start < curr_end:
                     curr_end = max(curr_end, next_end)
                 else:
@@ -146,14 +169,9 @@ class TraceAnalyzer:
             merged.append((curr_start, curr_end))
             
         active_time = sum(end - start for start, end in merged)
-        
-        total_duration = compute_events[-1][1] - compute_events[0][0]
+        total_duration = max_ts - min_ts
         
         if total_duration <= 0:
             return 0.0
             
-        idle_time = total_duration - active_time
-        return (idle_time / total_duration) * 100.0
-
-    def calculate_sm_efficiency(self) -> float:
-        return 0.0
+        return (active_time / total_duration) * 100.0
