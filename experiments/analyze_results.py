@@ -8,7 +8,21 @@ import json
 import yaml
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from pathlib import Path
+import sys
+
+# Add current directory to path to allow imports if run directly
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from tools.trace_analyzer import TraceAnalyzer
+    from tools.ttft.ttft import metric_cal as cal_ttft
+    from tools.tpot.tpot import metric_cal as cal_tpot
+    from tools.pipeline_bubble_ratio.pipeline_bubble_ratio import metric_cal as cal_bubble_ratio
+except ImportError:
+    print("Warning: Could not import tools")
+    TraceAnalyzer = None
 
 
 def collect_metrics(trace_collection_dir):
@@ -38,6 +52,30 @@ def collect_metrics(trace_collection_dir):
 
         # Extract key information
         parallelism = workload_card['Model-executor']['model_plan_parallelization']
+        
+        # New metrics using tools
+        ttft_ms = 0.0
+        tpot_ms = 0.0
+        bubble_ratio = 0.0
+        
+        try:
+            ttft_ms = cal_ttft(str(trace_dir))
+            tpot_ms = cal_tpot(str(trace_dir))
+            bubble_ratio = cal_bubble_ratio(str(trace_dir))
+        except Exception as e:
+            print(f"Error calculating metrics for {trace_dir.name}: {e}")
+
+        # Analyze traces for other metrics (Comm Overhead, MFU)
+        comm_overhead = 0.0
+        sm_efficiency = 0.0
+        
+        if TraceAnalyzer:
+            kineto_trace_path = trace_dir / f"kineto_trace_0.json"
+            if kineto_trace_path.exists():
+                analyzer = TraceAnalyzer(str(kineto_trace_path))
+                comm_overhead = analyzer.calculate_comm_overhead()
+                # bubble_ratio is already calculated via tool
+                sm_efficiency = analyzer.calculate_sm_efficiency()
 
         result = {
             'experiment': trace_dir.name,
@@ -52,11 +90,38 @@ def collect_metrics(trace_collection_dir):
             'avg_iter_time': timing_stats['avg_iteration_time'],
             'min_iter_time': timing_stats['min_iteration_time'],
             'max_iter_time': timing_stats['max_iteration_time'],
+            'ttft_ms': ttft_ms,
+            'tpot_ms': tpot_ms,
+            'comm_overhead_pct': comm_overhead,
+            'bubble_ratio_pct': bubble_ratio,
+            'sm_efficiency_pct': sm_efficiency,
         }
 
         # Calculate throughput
         tokens_per_iter = result['batch_size'] * result['seq_len']
         result['throughput_tokens_sec'] = tokens_per_iter / result['avg_iter_time']
+        
+        # Calculate MFU (Approximate)
+        # MFU = (Throughput * FLOPs_per_token) / (Num_GPUs * Peak_FLOPs_per_GPU)
+        # Approx FLOPs per token = 2 * Num_Params
+        # We need model size in params. Let's estimate from model name or config.
+        # For now, let's assume Llama-8B has ~8B params.
+        model_name = result['model'].lower()
+        num_params = 8e9 # Default to 8B
+        if '70b' in model_name:
+            num_params = 70e9
+        elif 'moe' in model_name or 'deepseek' in model_name:
+            # For MoE, active params is what matters for FLOPs
+            num_params = 13e9 # Approx active params for some MoEs
+            
+        flops_per_token = 2 * num_params
+        # Peak FLOPs for A100 BF16 ~ 312 TFLOPS
+        peak_flops_per_gpu = 312e12 
+        
+        total_flops = result['throughput_tokens_sec'] * flops_per_token
+        total_peak_flops = result['gpus'] * peak_flops_per_gpu
+        
+        result['mfu_pct'] = (total_flops / total_peak_flops) * 100
 
         results.append(result)
 
@@ -132,8 +197,9 @@ def generate_summary_table(df):
     """Generate summary table for all experiments."""
 
     summary_cols = [
-        'experiment', 'model', 'tp', 'pp', 'dp', 'ep', 'gpus',
-        'throughput_tokens_sec', 'avg_iter_time'
+        'experiment', 'model', 'tp', 'pp', 'ep', 'gpus',
+        'throughput_tokens_sec', 'ttft_ms', 'tpot_ms', 
+        'mfu_pct', 'comm_overhead_pct', 'bubble_ratio_pct'
     ]
 
     summary = df[summary_cols].copy()

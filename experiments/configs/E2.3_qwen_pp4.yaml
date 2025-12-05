@@ -1,0 +1,21 @@
+experiment:
+  name: "E2.3_qwen_pp4"
+  description: "Pure Pipeline: Qwen 72B with PP=4"
+
+model:
+  name: "Qwen/Qwen-72B"
+  precision: "bfloat16"
+
+parallelism:
+  tp: 1
+  pp: 4
+  dp_shard: 1
+
+data:
+  batch_size: 16
+  seq_len: 2048
+  max_tokens: 512
+
+output_dir: "trace_collection/E2.3_qwen_pp4"
+warmup_iterations: 2
+profile_iterations: 3

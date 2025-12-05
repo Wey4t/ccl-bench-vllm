@@ -136,12 +136,42 @@ class VLLMProfiler:
         et.unregister_callback()
         print(f"[Rank {self.rank}] Saved PyTorch ET trace to {et_file}")
 
-        # Save iteration timing statistics
+        # Process metrics from the last iteration (or accumulate if needed)
+        # Note: In this simple loop, we are overwriting 'outputs' each time.
+        # For accurate stats, we should probably collect all outputs or just use the last batch.
+        # Let's use the last batch for detailed metrics.
+        
+        ttft_list = []
+        tpot_list = []
+        
+        if outputs:
+            for request_output in outputs:
+                if request_output.metrics:
+                    # TTFT: Time to first token (arrival to first token)
+                    if request_output.metrics.first_token_time and request_output.metrics.arrival_time:
+                        ttft = request_output.metrics.first_token_time - request_output.metrics.arrival_time
+                        ttft_list.append(ttft)
+                    
+                    # TPOT: Time per output token (first token to finished) / (output_len - 1)
+                    # Or (finished - first_token) / (output_len - 1)
+                    # If output_len == 1, TPOT is 0 or undefined.
+                    if request_output.metrics.finished_time and request_output.metrics.first_token_time:
+                        gen_time = request_output.metrics.finished_time - request_output.metrics.first_token_time
+                        output_len = len(request_output.outputs[0].token_ids)
+                        if output_len > 1:
+                            tpot = gen_time / (output_len - 1)
+                            tpot_list.append(tpot)
+
+        # Save iteration timing statistics and new metrics
         stats = {
             'iteration_times': iteration_times,
-            'avg_iteration_time': sum(iteration_times) / len(iteration_times),
-            'min_iteration_time': min(iteration_times),
-            'max_iteration_time': max(iteration_times),
+            'avg_iteration_time': sum(iteration_times) / len(iteration_times) if iteration_times else 0,
+            'min_iteration_time': min(iteration_times) if iteration_times else 0,
+            'max_iteration_time': max(iteration_times) if iteration_times else 0,
+            'ttft_avg': sum(ttft_list) / len(ttft_list) if ttft_list else 0,
+            'tpot_avg': sum(tpot_list) / len(tpot_list) if tpot_list else 0,
+            'ttft_p99': sorted(ttft_list)[int(len(ttft_list) * 0.99)] if ttft_list else 0,
+            'tpot_p99': sorted(tpot_list)[int(len(tpot_list) * 0.99)] if tpot_list else 0,
         }
 
         stats_file = os.path.join(self.output_dir, f"timing_stats_{self.rank}.json")
@@ -150,6 +180,8 @@ class VLLMProfiler:
 
         print(f"[Rank {self.rank}] Profiling complete!")
         print(f"[Rank {self.rank}] Average iteration time: {stats['avg_iteration_time']:.3f}s")
+        print(f"[Rank {self.rank}] Average TTFT: {stats['ttft_avg']:.4f}s")
+        print(f"[Rank {self.rank}] Average TPOT: {stats['tpot_avg']:.4f}s")
 
 
 def main():
