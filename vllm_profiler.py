@@ -31,6 +31,22 @@ class VLLMProfiler:
 
         # Get rank for multi-GPU setup
         self.rank = int(os.environ.get('LOCAL_RANK', 0))
+
+    def create_llm_engine(self):
+        """Create vLLM engine with parallelism configuration."""
+        model_config = self.config['model']
+        parallel_config = self.config['parallelism']
+
+        # Set environment variable to enable vLLM profiler
+        os.environ['VLLM_TORCH_PROFILER_DIR'] = self.output_dir
+        print("[DEBUG] Set VLLM_TORCH_PROFILER_DIR to {}".format(self.output_dir))
+
+        print("[DEBUG] Initializing LLM with disable_log_stats=False")
+        llm = LLM(
+            model=model_config['name'],
+            tensor_parallel_size=parallel_config.get('tp', 1),
+            pipeline_parallel_size=parallel_config.get('pp', 1),
+            trust_remote_code=True,
             dtype=model_config.get('precision', 'bfloat16'),
             max_model_len=self.config['data']['seq_len'],
             gpu_memory_utilization=model_config.get('gpu_memory_utilization', 0.9),
