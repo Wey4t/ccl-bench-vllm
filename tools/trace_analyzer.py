@@ -4,8 +4,55 @@ from typing import Dict, List, Any
 class TraceAnalyzer:
     def __init__(self, trace_path: str):
         self.trace_path = trace_path
-        self.events = self._load_trace()
+        if trace_path.endswith('.csv'):
+            self.events = self._load_nsys_csv()
+        else:
+            self.events = self._load_trace()
         
+    def _load_nsys_csv(self) -> List[Dict[str, Any]]:
+        """Load and parse nsys cuda_gpu_trace CSV file."""
+        import csv
+        events = []
+        try:
+            with open(self.trace_path, 'r') as f:
+                # nsys CSV output usually starts with a header row
+                reader = csv.DictReader(f)
+                
+                print(f"[DEBUG] Loading nsys CSV trace: {self.trace_path}")
+                
+                for row in reader:
+                    # Normalize keys to handle potential whitespace
+                    row = {k.strip(): v for k, v in row.items() if k}
+                    
+                    # Look for Start and Duration columns (nsys format varies, trying common names)
+                    start_ns = row.get('Start (ns)') or row.get('Start')
+                    dur_ns = row.get('Duration (ns)') or row.get('Duration')
+                    name = row.get('Name')
+                    
+                    if start_ns and dur_ns and name:
+                        try:
+                            # Convert to microseconds to match Kineto format (us)
+                            # Kineto 'ts' is usually in us
+                            ts_us = float(start_ns.replace(',', '')) / 1000.0
+                            dur_us = float(dur_ns.replace(',', '')) / 1000.0
+                            
+                            events.append({
+                                'name': name,
+                                'ts': ts_us,
+                                'dur': dur_us,
+                                'cat': 'kernel', # Treat all GPU trace items as kernels
+                                'args': row
+                            })
+                        except ValueError:
+                            continue
+                            
+            print(f"[DEBUG] Loaded {len(events)} events from CSV")
+            return events
+            
+        except Exception as e:
+            print(f"Error loading CSV trace {self.trace_path}: {e}")
+            return []
+
     def _load_trace(self) -> List[Dict[str, Any]]:
         """Load and parse the Kineto trace JSON file."""
         try:
