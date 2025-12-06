@@ -1,6 +1,6 @@
 # E1.3: Llama-8B | TP=4 | 4 GPUs
 experiment_id: "E1.3"
-description: "Llama-8B with Tensor Parallelism TP=4"
+description: "Llama-8B tensor parallelism TP=4 on 4 GPUs"
 
 model:
   name: "meta-llama/Llama-3.1-8B"
@@ -15,10 +15,10 @@ parallelism:
 
 data:
   batch_size: 4
-  seq_len: 8192
-  max_tokens: 128
+  seq_len: 2048
+  max_tokens: 512
 
 warmup_iterations: 2
 profile_iterations: 5
 
-output_dir: "trace_collection/llama-8b-vllm-perlmutter-E1.3"
+output_dir: "trace_collection/llama-8b-tp4"

@@ -21,8 +21,8 @@ source activate vllm-profiling
 
 mkdir -p logs
 
-# Configuration file passed as environment variable
-CONFIG=${CONFIG:-"E1.1_llama8b_baseline.yaml"}
+# Configuration file passed as environment variable (default to TP=4)
+CONFIG=${CONFIG:-"E1.3_llama8b_tp4.yaml"}
 EXP_NAME=$(basename $CONFIG .yaml)
 
 export NCCL_DEBUG=INFO

@@ -48,7 +48,7 @@ AutoTokenizer.from_pretrained('meta-llama/Llama-3.1-8B')
 python experiments/generate_all_configs.py
 ```
 
-This creates 12 experiment configurations (E1.1-E3.4) in `experiments/configs/`.
+This creates three experiment configurations (E1.1–E1.3) in `experiments/configs/`.
 
 ### Step 2: Update SLURM Scripts
 
@@ -93,21 +93,26 @@ ls -lh trace_collection/
 ```bash
 # For each completed experiment
 python experiments/generate_workload_card.py \
-    --config experiments/configs/E1.1_llama-3.1-8b.yaml \
-    --output-dir trace_collection/llama-3.1-8b-vllm-perlmutter-E1.1
+    --config experiments/configs/E1.1_llama8b_baseline.yaml \
+    --output-dir trace_collection/llama-8b-tp1
 ```
 
 ### Step 6: Calculate Metrics
 
 ```bash
 # Throughput
-./scripts/get_throughput_tokens_sec.sh llama-3.1-8b-vllm-perlmutter-E1.1
+./scripts/get_throughput_tokens_sec.sh llama-8b-tp1
 
 # Iteration time
-./scripts/get_iteration_wall_clock.sh llama-3.1-8b-vllm-perlmutter-E1.1
+./scripts/get_iteration_wall_clock.sh llama-8b-tp1
 
 # Communication overhead
-./scripts/get_coll_cal_num.sh llama-3.1-8b-vllm-perlmutter-E1.2
+./scripts/get_comm_overhead.sh llama-8b-tp2
+
+# TTFT / TPOT / MFU
+./scripts/get_ttft.sh llama-8b-tp1
+./scripts/get_tpot.sh llama-8b-tp1
+./scripts/get_mfu.sh llama-8b-tp4
 ```
 
 ### Step 7: Analyze Results
@@ -127,12 +132,12 @@ For detailed GPU profiling with Nsys:
 
 ```bash
 # Run with Nsys
-sbatch --export=CONFIG=E1.3_llama-3.1-8b.yaml \
+sbatch --export=CONFIG=E1.3_llama8b_tp4.yaml \
     experiments/slurm_scripts/run_with_nsys.sh
 
 # Analyze Nsys report (on Perlmutter or download)
 module load nsight-systems
-nsys stats trace_collection/llama-3.1-8b-vllm-perlmutter-E1.3/nsys_*.nsys-rep
+nsys stats trace_collection/llama-8b-tp4/nsys_*.nsys-rep
 ```
 
 ## 📊 Expected Output Structure
@@ -141,13 +146,13 @@ After running experiments:
 
 ```
 trace_collection/
-├── llama-3.1-8b-vllm-perlmutter-E1.1/
+├── llama-8b-tp1/
 │   ├── workload_card.yaml
 │   ├── torch_et_0.json
 │   ├── kineto_trace_0.json
 │   ├── timing_stats_0.json
 │   └── nsys_0.nsys-rep (if using Nsys)
-├── llama-3.1-8b-vllm-perlmutter-E1.2/
+├── llama-8b-tp2/
 │   ├── workload_card.yaml
 │   ├── torch_et_0.json
 │   ├── torch_et_1.json
@@ -163,23 +168,10 @@ experiments/
 
 ## 🎯 Experiment Checklist
 
-**Phase 1: Single-Parallelism Experiments**
+**TP Scaling Experiments**
 - [ ] E1.1 - Llama-8B Baseline (1 GPU)
 - [ ] E1.2 - Llama-8B TP=2
 - [ ] E1.3 - Llama-8B TP=4
-- [ ] E1.4 - Llama-8B DP=2
-- [ ] E1.6 - Llama-8B PP=2
-
-**Phase 2: MoE Experiments**
-- [ ] E3.1 - DeepSeek-V2-Lite EP=1
-- [ ] E3.2 - DeepSeek-V2-Lite EP=2
-- [ ] E3.3 - DeepSeek-V2-Lite EP=4
-
-**Phase 3: Multi-Parallelism**
-- [ ] E2.1 - Llama-8B TP=2, DP=2
-- [ ] E2.2 - Llama-8B TP=2, PP=2
-- [ ] E2.3 - Qwen-32B TP=4
-- [ ] E3.4 - DeepSeek-V2-Lite TP=2, EP=2
 
 ## ⚙️ Customization
 
@@ -188,9 +180,9 @@ experiments/
 Edit experiment config:
 
 ```yaml
-# experiments/configs/E1.1_llama-3.1-8b.yaml
+# experiments/configs/E1.1_llama8b_baseline.yaml
 data:
-  seq_len: 16384  # Change from 8192
+  seq_len: 4096  # Change from 2048
 ```
 
 ### Change Number of Profiling Iterations

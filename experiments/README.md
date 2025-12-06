@@ -16,23 +16,10 @@ experiments/
 
 ## Experiments Overview
 
-### E1: Llama-8B Single-Parallelism
-- **E1.1**: Baseline (1 GPU, TP=1)
+### TP Scaling (Llama-8B)
+- **E1.1**: Baseline (1 GPU, TP=1, PP=1, EP=1)
 - **E1.2**: Tensor Parallelism (2 GPUs, TP=2)
 - **E1.3**: Tensor Parallelism (4 GPUs, TP=4)
-- **E1.4**: Data Parallelism (2 GPUs, DP=2)
-- **E1.6**: Pipeline Parallelism (2 GPUs, PP=2)
-
-### E2: Multi-Parallelism
-- **E2.1**: Llama-8B (4 GPUs, TP=2, DP=2)
-- **E2.2**: Llama-8B (4 GPUs, TP=2, PP=2)
-- **E2.3**: Qwen-32B (4 GPUs, TP=4)
-
-### E3: Expert Parallelism (MoE)
-- **E3.1**: DeepSeek-V2-Lite (1 GPU, EP=1)
-- **E3.2**: DeepSeek-V2-Lite (2 GPUs, EP=2)
-- **E3.3**: DeepSeek-V2-Lite (4 GPUs, EP=4)
-- **E3.4**: DeepSeek-V2-Lite (4 GPUs, TP=2, EP=2)
 
 ## Quick Start
 
@@ -42,7 +29,7 @@ experiments/
 python experiments/generate_all_configs.py
 ```
 
-This creates YAML configuration files in `experiments/configs/` for all experiments.
+This creates YAML configuration files in `experiments/configs/` for the three TP-scaling experiments.
 
 ### 2. Run an Experiment on Perlmutter
 
@@ -50,8 +37,8 @@ This creates YAML configuration files in `experiments/configs/` for all experime
 # Run baseline experiment
 sbatch experiments/slurm_scripts/run_E1.1.sh
 
-# Run with Nsys profiling
-sbatch --export=CONFIG=E1.3_llama-3.1-8b.yaml experiments/slurm_scripts/run_with_nsys.sh
+# Run with Nsys profiling (default CONFIG=E1.3_llama8b_tp4.yaml)
+sbatch experiments/slurm_scripts/run_with_nsys.sh
 ```
 
 ### 3. Generate Workload Card
@@ -60,24 +47,24 @@ After an experiment completes, generate its workload card:
 
 ```bash
 python experiments/generate_workload_card.py \
-    --config experiments/configs/E1.1_llama-3.1-8b.yaml \
-    --output-dir trace_collection/llama-3.1-8b-vllm-perlmutter-E1.1
+    --config experiments/configs/E1.1_llama8b_baseline.yaml \
+    --output-dir trace_collection/llama-8b-tp1
 ```
 
 ### 4. Calculate Metrics
 
 ```bash
 # Throughput
-./scripts/get_throughput_tokens_sec.sh llama-3.1-8b-vllm-perlmutter-E1.1
+./scripts/get_throughput_tokens_sec.sh llama-8b-tp1
 
 # Iteration time
-./scripts/get_iteration_wall_clock.sh llama-3.1-8b-vllm-perlmutter-E1.1
+./scripts/get_iteration_wall_clock.sh llama-8b-tp1
 
-# Communication-computation overlap
-./scripts/get_comm_comp_overlap.sh llama-3.1-8b-vllm-perlmutter-E1.1
+# Communication overhead (TP)
+./scripts/get_comm_overhead.sh llama-8b-tp2
 
-# Number of NCCL communication calls
-./scripts/get_coll_cal_num.sh llama-3.1-8b-vllm-perlmutter-E1.1
+# NCCL collective count
+./scripts/get_coll_cal_num.sh llama-8b-tp4
 ```
 
 ### 5. Analyze Results
@@ -109,8 +96,8 @@ warmup_iterations: 2      # Warmup before profiling
 profile_iterations: 5     # Number of profiled iterations
 data:
   batch_size: 4
-  seq_len: 8192
-  max_tokens: 128
+  seq_len: 2048
+  max_tokens: 512
 ```
 
 ## Trace Files
@@ -126,10 +113,12 @@ Each experiment generates:
 
 Available metrics (see `tools/README.md` for full list):
 
-1. **throughput_tokens_sec** - Tokens per second
-2. **iteration_wall_clock** - Average iteration time
-3. **comm_comp_overlap** - Communication-computation overlap %
-4. **coll_call_num** - Number of NCCL calls
+1. **ttft** - Time to first token (ms)
+2. **tpot** - Time per output token (ms)
+3. **throughput_tokens_sec** - Tokens per second
+4. **comm_overhead** - TP collectives overhead (% of step)
+5. **mfu** - Model FLOPs utilization (%)
+6. **coll_call_num** - Number of NCCL collectives
 
 ## Troubleshooting
 

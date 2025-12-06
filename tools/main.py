@@ -26,9 +26,20 @@ if __name__ == "__main__":
     elif metric_name == "comm_comp_overlap":
         from comm_comp_overlap.comm_comp_overlap import metric_cal
         metric_cal_func = metric_cal
+    elif metric_name == "comm_overhead":
+        from comm_overhead.comm_overhead import metric_cal
+        metric_cal_func = metric_cal
+    elif metric_name == "ttft":
+        from ttft.ttft import metric_cal
+        metric_cal_func = metric_cal
+    elif metric_name == "tpot":
+        from tpot.tpot import metric_cal
+        metric_cal_func = metric_cal
+    elif metric_name == "mfu":
+        from mfu.mfu import metric_cal
+        metric_cal_func = metric_cal
     else:
         raise ValueError(f"Unsupported metric name: {metric_name}")
     
     metric = metric_cal_func(trace_directory)
     print(metric)
-

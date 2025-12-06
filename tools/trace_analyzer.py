@@ -96,10 +96,15 @@ class TraceAnalyzer:
         min_ts = float('inf')
         max_ts = float('-inf')
         
-        # Keywords for communication kernels
-        # vllm::cross_device_reduce is used for TP
-        # nccl is used for PP/TP
-        comm_keywords = ['nccl', 'cross_device_reduce', 'ccl', 'all_reduce', 'broadcast', 'reduce_scatter']
+        # Keywords for TP-focused communication kernels
+        # We intentionally scope this to all-reduce/all-gather style ops to isolate TP cost.
+        comm_keywords = [
+            'allreduce',
+            'all_reduce',
+            'allgather',
+            'all_gather',
+            'reduce_scatter',  # keep for partial-reduce implementations
+        ]
         
         for event in self.events:
             if event.get('cat') != 'kernel':
