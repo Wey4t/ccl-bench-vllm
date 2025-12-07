@@ -125,8 +125,8 @@ class VLLMProfiler:
             for iter_idx in range(profile_iters):
                 start_time = time.perf_counter()
 
-                # Run inference and ask vLLM to return metrics
-                outputs = llm.generate(prompts, sampling_params, collect_metrics=True)
+                # Run inference; metrics may be available via RequestOutput or stat_logger
+                outputs = llm.generate(prompts, sampling_params)
 
                 end_time = time.perf_counter()
                 iter_time = end_time - start_time
