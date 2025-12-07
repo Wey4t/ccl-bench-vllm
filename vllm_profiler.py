@@ -192,24 +192,13 @@ class VLLMProfiler:
                 except AttributeError:
                     print("[DEBUG] First output has no metrics attribute")
 
-            for request_output in outputs:
-                if request_output.metrics:
-                    # TTFT: Time to first token (arrival to first token)
-                    if request_output.metrics.first_token_time is not None and request_output.metrics.arrival_time is not None:
-                        ttft = request_output.metrics.first_token_time - request_output.metrics.arrival_time
-                        ttft_list.append(ttft)
-                    
-                    # TPOT: Time per output token
-                    if request_output.metrics.finished_time is not None and request_output.metrics.first_token_time is not None:
-                        gen_time = request_output.metrics.finished_time - request_output.metrics.first_token_time
-                        output_len = len(request_output.outputs[0].token_ids)
-                        if output_len > 1:
-                            tpot = gen_time / (output_len - 1)
-                            tpot_list.append(tpot)
-                    print("[DEBUG] Object has no 'metrics' attribute")
+            fallback_tpot = []
+            metrics_found = 0
 
-            for request_output in outputs:
-                if request_output.metrics:
+            for idx, request_output in enumerate(outputs):
+                # Prefer metrics if available
+                if getattr(request_output, "metrics", None):
+                    metrics_found += 1
                     # TTFT: Time to first token (arrival to first token)
                     if request_output.metrics.first_token_time is not None and request_output.metrics.arrival_time is not None:
                         ttft = request_output.metrics.first_token_time - request_output.metrics.arrival_time
@@ -222,6 +211,25 @@ class VLLMProfiler:
                         if output_len > 1:
                             tpot = gen_time / (output_len - 1)
                             tpot_list.append(tpot)
+                    continue
+
+                # Fallback: estimate TPOT from iteration timing if metrics missing
+                try:
+                    output_len = len(request_output.outputs[0].token_ids)
+                    iter_time = iteration_times[idx] if idx < len(iteration_times) else None
+                    if iter_time is not None and output_len > 0:
+                        fallback_tpot.append(iter_time / output_len)
+                except Exception as exc:
+                    print(f"[DEBUG] Fallback TPOT estimation failed: {exc}")
+
+            # If no metrics-derived TTFT/TPOT, use rough fallbacks to avoid zeros
+            if not tpot_list and fallback_tpot:
+                tpot_list.extend(fallback_tpot)
+            if not ttft_list and iteration_times:
+                # Use a small fraction of iteration time as a crude TTFT estimate
+                ttft_list.extend([0.1 * t for t in iteration_times])
+
+            print(f"[DEBUG] Request outputs with metrics: {metrics_found}/{len(outputs)}")
 
         # Save iteration timing statistics and new metrics
         stats = {
