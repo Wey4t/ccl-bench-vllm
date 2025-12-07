@@ -1,0 +1,84 @@
+{
+  "schema": "1.1.1-chakra.0.0.4", "pid": 2298517, "time": "2025-12-07 12:49:53", "start_ts": 2151398343,
+  "nodes": [
+      {
+        "id": 2, "name": "[pytorch|profiler|execution_trace|thread]", "ctrl_deps": 1,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 0},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 3, "name": "ProfilerStep#0", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 1},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 4, "name": "ProfilerStep#1", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 2},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 5, "name": "ProfilerStep#2", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 3},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 6, "name": "ProfilerStep#3", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 4},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 7, "name": "ProfilerStep#4", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 5},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 8, "name": "ProfilerStep#5", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 6},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 9, "name": "ProfilerStep#6", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 7},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 10, "name": "ProfilerStep#7", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 8},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 11, "name": "ProfilerStep#8", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 9},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 12, "name": "ProfilerStep#9", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 10},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 13, "name": "ProfilerStep#10", "ctrl_deps": 2,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 11},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 1},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      },
+      {
+        "id": 1, "name": "[pytorch|profiler|execution_trace|process]", "ctrl_deps": 1,
+        "inputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "outputs": {"values": [], "shapes": [], "types": [], "strides": []},
+        "attrs": [{"name": "rf_id", "type": "uint64", "value": 0},{"name": "fw_parent", "type": "uint64", "value": 0},{"name": "seq_id", "type": "int64", "value": -1},{"name": "scope", "type": "uint64", "value": 7},{"name": "tid", "type": "uint64", "value": 0},{"name": "fw_tid", "type": "uint64", "value": 0},{"name": "op_schema", "type": "string", "value": ""},{"name": "kernel_backend", "type": "string", "value": ""},{"name": "kernel_file", "type": "string", "value": ""},{"name": "tensor_range", "type": "string", "value": ""}]
+      }
+  ],
+  "finish_ts": 2151473093
+}

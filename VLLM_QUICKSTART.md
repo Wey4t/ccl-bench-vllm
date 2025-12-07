@@ -67,7 +67,7 @@ Edit SLURM scripts to add your allocation:
 mkdir -p logs
 
 # Submit baseline job
-sbatch experiments/slurm_scripts/run_E1.1.sh
+sbatch -A m4999 ./experiments/slurm_scripts/run_E1.1.sh
 
 # Check job status
 squeue -u $USER

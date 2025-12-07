@@ -1,0 +1,18 @@
+experiment_id: E2.3
+description: Qwen-32B with TP=4 on 4 GPUs
+model:
+  name: Qwen/Qwen-32B
+  precision: bfloat16
+parallelism:
+  tp: 4
+  pp: 1
+  dp_replicate: 1
+  dp_shard: 1
+  ep: 1
+data:
+  batch_size: 2
+  seq_len: 8192
+  max_tokens: 128
+warmup_iterations: 2
+profile_iterations: 5
+output_dir: trace_collection/qwen-32b-vllm-perlmutter-E2.3

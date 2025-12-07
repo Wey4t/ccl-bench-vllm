@@ -16,7 +16,7 @@ module load python
 module load cuda/12.4
 
 # Activate environment
-source activate vllm-profiling
+source .venv/bin/activate
 
 # Create log directory
 mkdir -p logs
@@ -24,9 +24,12 @@ mkdir -p logs
 # Set NCCL environment variables for profiling
 export NCCL_DEBUG=INFO
 export NCCL_DEBUG_SUBSYS=ALL
+export HF_HOME=/pscratch/sd/n/nw388/huggingface
+export TORCH_EXTENSIONS_DIR=$SCRATCH/torch_extensions
+export VLLM_ATTENTION_BACKEND=TORCH_SDPA
 
 # Run profiling
 srun python vllm_profiler.py \
-    --config experiments/configs/E1.1_llama8b_baseline.yaml
+    --config experiments/configs/E1.1_llama-3.1-8b.yaml
 
 echo "Experiment E1.1 completed!"

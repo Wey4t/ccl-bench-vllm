@@ -33,7 +33,7 @@ srun nsys profile \
     --trace=cuda,nvtx,osrt,cudnn,cublas,nccl \
     --gpu-metrics-device=all \
     --cuda-memory-usage=true \
-    --capture-range=cudaProfilerApi \
+    #--capture-range=cudaProfilerApi \
     --capture-range-end=stop \
     python vllm_profiler.py --config experiments/configs/${CONFIG}
 

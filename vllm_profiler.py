@@ -41,6 +41,9 @@ class VLLMProfiler:
             dtype=model_config.get('precision', 'bfloat16'),
             max_model_len=self.config['data']['seq_len'],
             gpu_memory_utilization=0.9,
+            enforce_eager=True,
+            enable_chunked_prefill=True,
+            enable_expert_parallel=True
         )
 
         return llm
