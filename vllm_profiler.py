@@ -106,33 +106,35 @@ class VLLMProfiler:
 
         print("[Rank {}] Starting profiled iterations...".format(self.rank))
 
-        # Start execution trace observer
-        et.start()
-
-        # Start execution trace observer
-        et.start()
-
-        # Start CUDA profiler for nsys
-        print("[Rank {}] Starting CUDA profiler...".format(self.rank))
-        torch.cuda.profiler.start()
-
         iteration_times = []
+        outputs = None
 
-        for iter_idx in range(profile_iters):
-            start_time = time.perf_counter()
+        # Start execution trace observer
+        et.start()
 
-            # Run inference
-            outputs = llm.generate(prompts, sampling_params)
+        # Kineto profiler context
+        with profile(
+            activities=[
+                ProfilerActivity.CPU,
+                ProfilerActivity.CUDA,
+            ],
+            schedule=schedule(wait=0, warmup=0, active=profile_iters),
+            record_shapes=False,
+            on_trace_ready=trace_handler,
+        ) as prof:
+            for iter_idx in range(profile_iters):
+                start_time = time.perf_counter()
 
-            end_time = time.perf_counter()
-            iter_time = end_time - start_time
-            iteration_times.append(iter_time)
+                # Run inference and ask vLLM to return metrics
+                outputs = llm.generate(prompts, sampling_params, collect_metrics=True)
 
-            print("[Rank {}] Iteration {}: {:.3f}s".format(self.rank, iter_idx, iter_time))
+                end_time = time.perf_counter()
+                iter_time = end_time - start_time
+                iteration_times.append(iter_time)
 
-        # Stop CUDA profiler
-        print("[Rank {}] Stopping CUDA profiler...".format(self.rank))
-        torch.cuda.profiler.stop()
+                prof.step()
+
+                print("[Rank {}] Iteration {}: {:.3f}s".format(self.rank, iter_idx, iter_time))
 
         # Stop execution trace observer
         et.stop()
