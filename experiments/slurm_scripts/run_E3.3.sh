@@ -20,4 +20,4 @@ python experiments/generate_workload_card.py \
     --output-dir trace_collection/deepseek-v2-lite-vllm-perlmutter-E3.3
 
 
-nw_ep_analysis/plot_moe_stats.py trace_collection/deepseek-v2-lite-vllm-perlmutter-E3.3 --output-dir nw_ep_analysis/plots_E3.3
+python nw_ep_analysis/plot_moe_stats.py trace_collection/deepseek-v2-lite-vllm-perlmutter-E3.3 --output-dir nw_ep_analysis/plots_E3.3

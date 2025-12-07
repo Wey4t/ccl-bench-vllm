@@ -65,7 +65,7 @@ def plot_expert_stats(input_dir, output_dir):
     num_ranks = len(ranks)
     
     # Storage for global stats
-    # global_layer_stats[layer_id] = [count_expert_0, count_expert_1, ...]
+    # global_layer_stats[layer_id] = {'counts': [count_expert_0, ...], 'calls': [call_expert_0, ...]}
     global_layer_stats = {}
     
     # Storage for True GPU Load
@@ -74,6 +74,10 @@ def plot_expert_stats(input_dir, output_dir):
     
     # Storage for Layer Imbalance
     layer_imbalance = {} # layer_id -> {'cv': float, 'max_load': int, 'min_load': int}
+    
+    # Storage for Total Model Expert Counts
+    total_model_expert_counts = None
+    total_model_expert_calls = None
 
     for layer_name in sorted_layers:
         layer_id = parse_layer_id(layer_name)
@@ -96,7 +100,18 @@ def plot_expert_stats(input_dir, output_dir):
                 # Since we don't have batch-level granularity here, we can sum them as an approximation of "Total Active Batches processed by Expert A"
                 global_calls += np.array(data_by_rank[rank][layer_name]['expert_active_calls'])
 
-        global_layer_stats[layer_id] = global_counts
+        global_layer_stats[layer_id] = {'counts': global_counts, 'calls': global_calls}
+        
+        # Accumulate for Total Model Plot
+        if total_model_expert_counts is None:
+            total_model_expert_counts = np.zeros_like(global_counts)
+            total_model_expert_calls = np.zeros_like(global_calls)
+        
+        if len(global_counts) == len(total_model_expert_counts):
+            total_model_expert_counts += global_counts
+            total_model_expert_calls += global_calls
+        else:
+            print(f"Warning: Layer {layer_id} has different number of experts ({len(global_counts)}) than expected ({len(total_model_expert_counts)}). Skipping accumulation for total plot.")
         
         # 2. Calculate Imbalance (CV) for this layer based on Global Counts
         if np.sum(global_counts) > 0:
@@ -200,11 +215,12 @@ def plot_expert_stats(input_dir, output_dir):
         layer_id = parse_layer_id(layer_name)
         # print(f"Plotting Layer {layer_id} ({layer_name})...")
         
-        global_counts = global_layer_stats[layer_id]
+        global_counts = global_layer_stats[layer_id]['counts']
+        global_calls = global_layer_stats[layer_id]['calls']
         num_experts = len(global_counts)
         experts = np.arange(num_experts)
         
-        plt.figure(figsize=(15, 6))
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
         
         # Color bars by GPU ownership
         experts_per_rank = num_experts // num_ranks
@@ -213,24 +229,82 @@ def plot_expert_stats(input_dir, output_dir):
         
         for i in range(num_experts):
             rank_owner = min(i // experts_per_rank, num_ranks - 1)
-            colors.append(plt.cm.viridis(rank_owner / (num_ranks - 1)))
+            denominator = max(num_ranks - 1, 1)
+            colors.append(plt.cm.viridis(rank_owner / denominator))
             
-        bars = plt.bar(experts, global_counts, color=colors, alpha=0.8)
+        # Plot Tokens
+        ax1.bar(experts, global_counts, color=colors, alpha=0.8)
         
         # Create custom legend
         from matplotlib.patches import Patch
-        legend_elements = [Patch(facecolor=plt.cm.viridis(i / (num_ranks - 1)), 
+        denominator = max(num_ranks - 1, 1)
+        legend_elements = [Patch(facecolor=plt.cm.viridis(i / denominator), 
                                label=f'GPU {i}') for i in ranks]
         
-        plt.title(f'Layer {layer_id}: Global Token Distribution per Expert')
-        plt.xlabel('Expert ID')
-        plt.ylabel('Total Tokens (Global)')
-        plt.legend(handles=legend_elements, title="Hosted on")
-        plt.grid(axis='y', alpha=0.3)
-        plt.xlim(-0.5, num_experts + 0.5)
+        ax1.set_title(f'Layer {layer_id}: Global Token Distribution per Expert')
+        ax1.set_xlabel('Expert ID')
+        ax1.set_ylabel('Total Tokens (Global)')
+        ax1.legend(handles=legend_elements, title="Hosted on")
+        ax1.grid(axis='y', alpha=0.3)
+        ax1.set_xlim(-0.5, num_experts + 0.5)
+
+        # Plot Calls
+        ax2.bar(experts, global_calls, color=colors, alpha=0.8)
+        
+        ax2.set_title(f'Layer {layer_id}: Global Active Calls per Expert')
+        ax2.set_xlabel('Expert ID')
+        ax2.set_ylabel('Total Active Calls (Global)')
+        ax2.legend(handles=legend_elements, title="Hosted on")
+        ax2.grid(axis='y', alpha=0.3)
+        ax2.set_xlim(-0.5, num_experts + 0.5)
         
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"layer_{layer_id:02d}_global_stats.png"))
+        plt.close()
+
+    # --- Plot 4: Total Model Expert Distribution ---
+    if total_model_expert_counts is not None:
+        print("Plotting Total Model Expert Distribution...")
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+        
+        num_experts = len(total_model_expert_counts)
+        experts = np.arange(num_experts)
+        experts_per_rank = num_experts // num_ranks
+        
+        colors = []
+        for i in range(num_experts):
+            rank_owner = min(i // experts_per_rank, num_ranks - 1)
+            denominator = max(num_ranks - 1, 1)
+            colors.append(plt.cm.viridis(rank_owner / denominator))
+            
+        # Plot Tokens
+        ax1.bar(experts, total_model_expert_counts, color=colors, alpha=0.8)
+        
+        # Legend
+        from matplotlib.patches import Patch
+        denominator = max(num_ranks - 1, 1)
+        legend_elements = [Patch(facecolor=plt.cm.viridis(i / denominator), 
+                               label=f'GPU {i}') for i in ranks]
+        
+        ax1.set_title('Total Model: Global Token Distribution per Expert (All Layers Summed)')
+        ax1.set_xlabel('Expert ID')
+        ax1.set_ylabel('Total Tokens (All Layers)')
+        ax1.legend(handles=legend_elements, title="Hosted on")
+        ax1.grid(axis='y', alpha=0.3)
+        ax1.set_xlim(-0.5, num_experts + 0.5)
+
+        # Plot Calls
+        ax2.bar(experts, total_model_expert_calls, color=colors, alpha=0.8)
+        
+        ax2.set_title('Total Model: Global Active Calls per Expert (All Layers Summed)')
+        ax2.set_xlabel('Expert ID')
+        ax2.set_ylabel('Total Active Calls (All Layers)')
+        ax2.legend(handles=legend_elements, title="Hosted on")
+        ax2.grid(axis='y', alpha=0.3)
+        ax2.set_xlim(-0.5, num_experts + 0.5)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "summary_total_model_expert_dist.png"))
         plt.close()
 
     print(f"All plots saved to {output_dir}")
