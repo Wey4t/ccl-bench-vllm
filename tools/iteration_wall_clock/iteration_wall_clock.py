@@ -13,17 +13,17 @@ def metric_cal(directory: str) -> float:
         float: Average iteration wall-clock time in seconds.
     """
 
-    timing_stats_path = os.path.join(directory, "timing_stats_0.json")
+    timing_candidates = [
+        os.path.join(directory, "timing_stats_0.json"),
+        os.path.join(directory, "timing_stats_rank0.json"),
+    ]
+    timing_stats_path = next((p for p in timing_candidates if os.path.exists(p)), None)
+    if timing_stats_path is None:
+        raise FileNotFoundError(f"No timing_stats_*.json found under {directory}")
 
-    try:
-        with open(timing_stats_path, 'r') as f:
-            timing_stats = json.load(f)
+    with open(timing_stats_path, 'r') as f:
+        timing_stats = json.load(f)
 
-        return timing_stats['avg_iteration_time']
-
-    except FileNotFoundError:
-        print(f"File not found: {timing_stats_path}")
-        return 0.0
-    except json.JSONDecodeError:
-        print(f"Error decoding JSON in file: {timing_stats_path}")
-        return 0.0
+    if 'avg_iteration_time' not in timing_stats:
+        raise KeyError(f"'avg_iteration_time' missing in {timing_stats_path}")
+    return timing_stats['avg_iteration_time']

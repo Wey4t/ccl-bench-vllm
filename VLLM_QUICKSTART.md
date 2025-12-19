@@ -109,10 +109,9 @@ python experiments/generate_workload_card.py \
 # Communication overhead
 ./scripts/get_comm_overhead.sh llama-8b-tp2
 
-# TTFT / TPOT / MFU
+# TTFT / TPOT
 ./scripts/get_ttft.sh llama-8b-tp1
 ./scripts/get_tpot.sh llama-8b-tp1
-./scripts/get_mfu.sh llama-8b-tp4
 ```
 
 ### Step 7: Analyze Results

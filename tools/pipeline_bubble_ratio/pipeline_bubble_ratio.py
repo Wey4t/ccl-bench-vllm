@@ -17,26 +17,32 @@ def metric_cal(path: str) -> float:
     Args:
         path: Directory containing trace files OR path to a specific trace file.
     """
-    trace_path = path
-    
-    # If directory, look for default files
+    trace_paths = []
+
     if os.path.isdir(path):
-        # Try nsys CSV first
-        trace_path = os.path.join(path, "cuda_gpu_trace.csv")
-        if not os.path.exists(trace_path):
-            # Fallback to Kineto
-            trace_path = os.path.join(path, "kineto_trace_0.json")
-    
-    if not os.path.exists(trace_path):
-        print(f"No trace file found in or at {path}")
-        return 0.0
-        
-    try:
+        csv_candidates = [
+            os.path.join(path, name)
+            for name in os.listdir(path)
+            if name.startswith("cuda_gpu_trace") and name.endswith(".csv")
+        ]
+        json_candidates = [
+            os.path.join(path, name)
+            for name in os.listdir(path)
+            if name.startswith("kineto_trace_") and name.endswith(".json")
+        ]
+        trace_paths = sorted(csv_candidates or json_candidates)
+    else:
+        trace_paths = [path]
+
+    if not trace_paths:
+        raise FileNotFoundError(f"No trace files found in or at {path}")
+
+    ratios = []
+    for trace_path in trace_paths:
         analyzer = TraceAnalyzer(trace_path)
-        return analyzer.calculate_bubble_ratio()
-    except Exception as e:
-        print(f"Error calculating Bubble Ratio: {e}")
-        return 0.0
+        ratios.append(analyzer.calculate_bubble_ratio())
+
+    return sum(ratios) / len(ratios)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

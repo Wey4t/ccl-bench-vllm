@@ -1,6 +1,7 @@
 import json
 from typing import Dict, List, Any
 
+
 class TraceAnalyzer:
     def __init__(self, trace_path: str):
         self.trace_path = trace_path
@@ -8,7 +9,12 @@ class TraceAnalyzer:
             self.events = self._load_nsys_csv()
         else:
             self.events = self._load_trace()
-        
+
+    @staticmethod
+    def _is_kernel_event(event: Dict[str, Any]) -> bool:
+        cat = str(event.get('cat', '')).lower()
+        return 'kernel' in cat
+
     def _load_nsys_csv(self) -> List[Dict[str, Any]]:
         """Load and parse nsys cuda_gpu_trace CSV file."""
         import csv
@@ -17,25 +23,25 @@ class TraceAnalyzer:
             with open(self.trace_path, 'r') as f:
                 # nsys CSV output usually starts with a header row
                 reader = csv.DictReader(f)
-                
+
                 print(f"[DEBUG] Loading nsys CSV trace: {self.trace_path}")
-                
+
                 for row in reader:
                     # Normalize keys to handle potential whitespace
                     row = {k.strip(): v for k, v in row.items() if k}
-                    
+
                     # Look for Start and Duration columns (nsys format varies, trying common names)
                     start_ns = row.get('Start (ns)') or row.get('Start')
                     dur_ns = row.get('Duration (ns)') or row.get('Duration')
                     name = row.get('Name')
-                    
+
                     if start_ns and dur_ns and name:
                         try:
                             # Convert to microseconds to match Kineto format (us)
                             # Kineto 'ts' is usually in us
                             ts_us = float(start_ns.replace(',', '')) / 1000.0
                             dur_us = float(dur_ns.replace(',', '')) / 1000.0
-                            
+
                             events.append({
                                 'name': name,
                                 'ts': ts_us,
@@ -45,10 +51,10 @@ class TraceAnalyzer:
                             })
                         except ValueError:
                             continue
-                            
+
             print(f"[DEBUG] Loaded {len(events)} events from CSV")
             return events
-            
+
         except Exception as e:
             print(f"Error loading CSV trace {self.trace_path}: {e}")
             return []
@@ -66,13 +72,13 @@ class TraceAnalyzer:
                 else:
                     print(f"Warning: Unexpected trace format in {self.trace_path}")
                     return []
-                
+
                 print("[DEBUG] Loaded trace {} with {} events".format(self.trace_path, len(events)))
                 unique_names = sorted(list(set([e.get('name', 'UNKNOWN') for e in events])))
                 print("[DEBUG] Unique event names (first 50): {}".format(unique_names[:50]))
-                
+
                 # Check for GPU kernels
-                cuda_events = [e for e in events if 'cuda' in e.get('name', '').lower() or 'kernel' in e.get('name', '').lower()]
+                cuda_events = [e for e in events if self._is_kernel_event(e) or 'cuda' in e.get('name', '').lower()]
                 print("[DEBUG] Found {} CUDA/Kernel events".format(len(cuda_events)))
                 if len(cuda_events) > 0:
                      print("[DEBUG] First 10 CUDA events: {}".format([e.get('name') for e in cuda_events[:10]]))
@@ -90,12 +96,12 @@ class TraceAnalyzer:
         Sum of duration of Communication kernels / Total trace duration.
         """
         if not self.events:
-            return 0.0
-            
+            raise ValueError("Trace is empty; cannot compute comm overhead")
+
         comm_time = 0.0
         min_ts = float('inf')
         max_ts = float('-inf')
-        
+
         # Keywords for TP-focused communication kernels
         # We intentionally scope this to all-reduce/all-gather style ops to isolate TP cost.
         comm_keywords = [
@@ -104,29 +110,34 @@ class TraceAnalyzer:
             'allgather',
             'all_gather',
             'reduce_scatter',  # keep for partial-reduce implementations
+            'nccl',
         ]
-        
+
+        kernel_events = [e for e in self.events if self._is_kernel_event(e)]
+        if not kernel_events:
+            raise ValueError("No kernel events found; Kineto/CUDA capture likely missing")
+
         for event in self.events:
-            if event.get('cat') != 'kernel':
+            if not self._is_kernel_event(event):
                 continue
-                
+
             if 'ts' not in event or 'dur' not in event:
                 continue
-                
+
             ts = event['ts']
             dur = event['dur']
             name = event.get('name', '').lower()
-            
+
             min_ts = min(min_ts, ts)
             max_ts = max(max_ts, ts + dur)
-            
+
             if any(k in name for k in comm_keywords):
                 comm_time += dur
-                
+
         total_duration = max_ts - min_ts
         if total_duration <= 0:
-            return 0.0
-            
+            raise ValueError("Invalid total duration; trace timestamps malformed")
+
         return (comm_time / total_duration) * 100.0
 
     def calculate_bubble_ratio(self) -> float:
@@ -134,19 +145,19 @@ class TraceAnalyzer:
         Estimate Pipeline Bubble Ratio (%).
         """
         if not self.events:
-            return 0.0
-            
+            raise ValueError("Trace is empty; cannot compute bubble ratio")
+
         compute_events = []
         for event in self.events:
-            if event.get('cat') == 'kernel' and 'nccl' not in event.get('name', '').lower():
+            if self._is_kernel_event(event) and 'nccl' not in event.get('name', '').lower():
                 if 'ts' in event and 'dur' in event:
                     compute_events.append((event['ts'], event['ts'] + event['dur']))
-        
+
         if not compute_events:
-            return 0.0
-            
+            raise ValueError("No compute kernel events found; cannot compute bubble ratio")
+
         compute_events.sort(key=lambda x: x[0])
-        
+
         merged = []
         if compute_events:
             curr_start, curr_end = compute_events[0]
@@ -157,14 +168,14 @@ class TraceAnalyzer:
                     merged.append((curr_start, curr_end))
                     curr_start, curr_end = next_start, next_end
             merged.append((curr_start, curr_end))
-            
+
         active_time = sum(end - start for start, end in merged)
-        
+
         total_duration = compute_events[-1][1] - compute_events[0][0]
-        
+
         if total_duration <= 0:
-            return 0.0
-            
+            raise ValueError("Invalid total duration; compute events timestamps malformed")
+
         idle_time = total_duration - active_time
         return (idle_time / total_duration) * 100.0
 
@@ -175,32 +186,36 @@ class TraceAnalyzer:
         Handles overlapping kernels by calculating the union of time intervals.
         """
         if not self.events:
-            return 0.0
-            
+            raise ValueError("Trace is empty; cannot compute SM efficiency")
+
         intervals = []
         min_ts = float('inf')
         max_ts = float('-inf')
-        
+
+        kernel_events = [e for e in self.events if self._is_kernel_event(e)]
+        if not kernel_events:
+            raise ValueError("No kernel events found; Kineto/CUDA capture likely missing")
+
         for event in self.events:
-            if event.get('cat') != 'kernel':
+            if not self._is_kernel_event(event):
                 continue
-                
+
             if 'ts' not in event or 'dur' not in event:
                 continue
-                
+
             start = event['ts']
             end = start + event['dur']
             intervals.append((start, end))
-            
+
             min_ts = min(min_ts, start)
             max_ts = max(max_ts, end)
-            
+
         if not intervals:
-            return 0.0
-            
+            raise ValueError("No intervals collected; timestamps missing")
+
         # Calculate union of intervals
         intervals.sort(key=lambda x: x[0])
-        
+
         merged = []
         if intervals:
             curr_start, curr_end = intervals[0]
@@ -211,11 +226,11 @@ class TraceAnalyzer:
                     merged.append((curr_start, curr_end))
                     curr_start, curr_end = next_start, next_end
             merged.append((curr_start, curr_end))
-            
+
         active_time = sum(end - start for start, end in merged)
         total_duration = max_ts - min_ts
-        
+
         if total_duration <= 0:
-            return 0.0
-            
+            raise ValueError("Invalid total duration; trace timestamps malformed")
+
         return (active_time / total_duration) * 100.0

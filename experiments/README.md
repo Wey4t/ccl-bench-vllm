@@ -115,10 +115,9 @@ Available metrics (see `tools/README.md` for full list):
 
 1. **ttft** - Time to first token (ms)
 2. **tpot** - Time per output token (ms)
-3. **throughput_tokens_sec** - Tokens per second
+3. **throughput_tokens_sec** - Tokens per second (derived from config + iteration timing)
 4. **comm_overhead** - TP collectives overhead (% of step)
-5. **mfu** - Model FLOPs utilization (%)
-6. **coll_call_num** - Number of NCCL collectives
+5. **coll_call_num** - Number of NCCL collectives
 
 ## Troubleshooting
 
@@ -157,7 +156,7 @@ pip install vllm
 
 1. **Scale to 16 nodes** - Modify SLURM scripts to use multiple nodes
 2. **Test NVSHMEM** - Compare with NCCL backend
-3. **Add more metrics** - MFU, SM utilization, straggler detection
+3. **Add more metrics** - SM utilization, straggler detection
 4. **Longer sequences** - Test with 16K, 32K sequence lengths
 
 ## References

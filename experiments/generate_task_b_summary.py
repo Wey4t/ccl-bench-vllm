@@ -3,12 +3,7 @@ import matplotlib.pyplot as plt
 import os
 
 def main():
-    # Constants for MFU calculation
-    # Note: Config says Qwen/Qwen2.5-32B, so we use ~32.5B params
-    NUM_PARAMS = 32.5e9 
-    FLOPS_PER_TOKEN = 2 * NUM_PARAMS
-    NUM_GPUS = 4
-    PEAK_FLOPS_PER_GPU = 312e12  # A100 BF16 Tensor Core Peak
+    # Constants for throughput estimation (tokens/sec derived from TPOT)
     BATCH_SIZE = 16 # From config
 
     # Data collected from experiments
@@ -49,11 +44,6 @@ def main():
         tpot_sec = d['tpot_ms'] / 1000.0
         throughput = BATCH_SIZE / tpot_sec
         d['throughput_tokens_sec'] = throughput
-        
-        # MFU = (Throughput * FLOPs/token) / (Num_GPUs * Peak_FLOPs/GPU)
-        total_flops = throughput * FLOPS_PER_TOKEN
-        total_peak = NUM_GPUS * PEAK_FLOPS_PER_GPU
-        d['mfu_pct'] = (total_flops / total_peak) * 100
 
     df = pd.DataFrame(data)
     
@@ -63,7 +53,7 @@ def main():
     # 1. Save CSV
     csv_path = "experiments/results_summary.csv"
     # Reorder columns
-    cols = ["experiment", "config", "ttft_ms", "tpot_ms", "bubble_ratio_pct", "comm_overhead_pct", "sm_efficiency_pct", "throughput_tokens_sec", "mfu_pct"]
+    cols = ["experiment", "config", "ttft_ms", "tpot_ms", "bubble_ratio_pct", "comm_overhead_pct", "sm_efficiency_pct", "throughput_tokens_sec"]
     df = df[cols]
     df.to_csv(csv_path, index=False)
     print(f"Saved summary to {csv_path}")
@@ -108,19 +98,8 @@ def main():
     plt.savefig("experiments/plot_bubble_ratio.png", dpi=300)
     plt.close()
     print("Saved experiments/plot_bubble_ratio.png")
-        
-    # Plot 4: MFU
-    plt.figure(figsize=(8, 6))
-    bars = plt.bar(df['config'], df['mfu_pct'], color=['#9467bd', '#8c564b', '#e377c2'])
-    plt.ylabel('MFU (%)')
-    plt.title('Model FLOPs Utilization (Higher is Better)')
-    plt.bar_label(bars, fmt='%.2f')
-    plt.tight_layout()
-    plt.savefig("experiments/plot_mfu.png", dpi=300)
-    plt.close()
-    print("Saved experiments/plot_mfu.png")
 
-    # Plot 5: Comm Overhead
+    # Plot 4: Comm Overhead
     plt.figure(figsize=(8, 6))
     bars = plt.bar(df['config'], df['comm_overhead_pct'], color=['#d62728', '#9467bd', '#8c564b'])
     plt.ylabel('Comm Overhead (%)')
@@ -131,7 +110,7 @@ def main():
     plt.close()
     print("Saved experiments/plot_comm_overhead.png")
 
-    # Plot 6: SM Efficiency
+    # Plot 5: SM Efficiency
     plt.figure(figsize=(8, 6))
     bars = plt.bar(df['config'], df['sm_efficiency_pct'], color=['#17becf', '#bcbd22', '#7f7f7f'])
     plt.ylabel('SM Efficiency (%)')

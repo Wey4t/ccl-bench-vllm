@@ -27,14 +27,31 @@ EXP_NAME=$(basename $CONFIG .yaml)
 
 export NCCL_DEBUG=INFO
 
-# Run with Nsys profiling
+# Ensure trace directory exists
+mkdir -p trace_collection/${EXP_NAME}
+
+# Run with Nsys profiling (capture full run; no CUDA capture-range gating)
 srun nsys profile \
-    -o trace_collection/${EXP_NAME}/nsys_%h_%p \
+    --force-overwrite=true \
+    -o trace_collection/${EXP_NAME}/nsys_report \
     --trace=cuda,nvtx,osrt,cudnn,cublas,nccl \
+    --sample=none \
+    --cpuctxsw=none \
     --gpu-metrics-device=all \
-    --cuda-memory-usage=true \
-    --capture-range=cudaProfilerApi \
-    --capture-range-end=stop \
     python vllm_profiler.py --config experiments/configs/${CONFIG}
+
+# Export CUDA GPU trace to CSV for downstream tools
+NSYS_REP=$(ls trace_collection/${EXP_NAME}/nsys_report.*rep | head -n1)
+if [ -z "$NSYS_REP" ]; then
+    echo "ERROR: Nsys report not found under trace_collection/${EXP_NAME}"
+    exit 1
+fi
+
+nsys stats \
+    --force-overwrite=true \
+    --report cuda_gpu_trace \
+    --format csv \
+    -o trace_collection/${EXP_NAME}/cuda_gpu_trace \
+    "$NSYS_REP"
 
 echo "Nsys profiling for ${EXP_NAME} completed!"

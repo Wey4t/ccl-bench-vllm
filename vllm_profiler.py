@@ -36,7 +36,7 @@ class VLLMProfiler:
             yaml.dump(self.config, f)
 
         # Get rank for multi-GPU setup
-        self.rank = int(os.environ.get("LOCAL_RANK", 0))
+        self.rank = int(os.environ.get("LOCAL_RANK", os.environ.get("RANK", 0)))
 
     def create_llm_engine(self):
         """Create vLLM engine with parallelism configuration."""
@@ -122,7 +122,7 @@ class VLLMProfiler:
         print(f"[Rank {self.rank}] Starting profiled iterations...")
 
         iteration_times = []
-        outputs = None
+        all_outputs = []
 
         # Start execution trace observer
         et.start()
@@ -138,7 +138,9 @@ class VLLMProfiler:
                 start_time = time.perf_counter()
 
                 outputs = llm.generate(prompts, sampling_params)
+                all_outputs.extend(outputs)
 
+                torch.cuda.synchronize()
                 end_time = time.perf_counter()
                 iter_time = end_time - start_time
                 iteration_times.append(iter_time)
@@ -159,107 +161,40 @@ class VLLMProfiler:
         tpot_list = []
 
         # 1) Try StatLogger histograms (true aggregated metrics)
-        if (
-            outputs
-            and getattr(outputs[0], "metrics", None) is None
-            and hasattr(llm.llm_engine, "stat_logger")
-        ):
+        def _extract_histogram_avg(logger_obj, attr_name: str):
+            if not hasattr(logger_obj, attr_name):
+                return []
+            hist = getattr(logger_obj, attr_name)
+            histograms = hist.values() if isinstance(hist, dict) else [hist]
+            results = []
+            for histogram in histograms:
+                if hasattr(histogram, "collect"):
+                    metrics_data = histogram.collect()
+                    if metrics_data:
+                        samples = metrics_data[0].samples
+                        sum_val = next(
+                            (s.value for s in samples if s.name.endswith("_sum")),
+                            0,
+                        )
+                        count_val = next(
+                            (s.value for s in samples if s.name.endswith("_count")),
+                            0,
+                        )
+                        if count_val > 0:
+                            results.append(sum_val / count_val)
+            return results
+
+        if hasattr(llm.llm_engine, "stat_logger"):
             print("[DEBUG] Attempting to extract metrics from StatLogger...")
             logger = llm.llm_engine.stat_logger
-
-            # TTFT from histogram_time_to_first_token
-            if hasattr(logger, "histogram_time_to_first_token"):
-                h_ttft = logger.histogram_time_to_first_token
-
-                # vLLM may use a dict {engine_idx: histogram} or a single histogram
-                histograms = (
-                    h_ttft.values()
-                    if isinstance(h_ttft, dict)
-                    else [h_ttft]
-                )
-                for histogram in histograms:
-                    if hasattr(histogram, "collect"):
-                        metrics_data = histogram.collect()
-                        if metrics_data:
-                            samples = metrics_data[0].samples
-                            sum_val = next(
-                                (
-                                    s.value
-                                    for s in samples
-                                    if s.name.endswith("_sum")
-                                ),
-                                0,
-                            )
-                            count_val = next(
-                                (
-                                    s.value
-                                    for s in samples
-                                    if s.name.endswith("_count")
-                                ),
-                                0,
-                            )
-                            if count_val > 0:
-                                avg_ttft = sum_val / count_val
-                                print(
-                                    f"[DEBUG] Extracted Avg TTFT from Histogram: {avg_ttft}s"
-                                )
-                                # 这里直接存一个平均值代表整体分布
-                                ttft_list.append(avg_ttft)
-
-            # TPOT from histogram_time_per_output_token
-            if hasattr(logger, "histogram_time_per_output_token"):
-                h_tpot = logger.histogram_time_per_output_token
-                histograms = (
-                    h_tpot.values()
-                    if isinstance(h_tpot, dict)
-                    else [h_tpot]
-                )
-                for histogram in histograms:
-                    if hasattr(histogram, "collect"):
-                        metrics_data = histogram.collect()
-                        if metrics_data:
-                            samples = metrics_data[0].samples
-                            sum_val = next(
-                                (
-                                    s.value
-                                    for s in samples
-                                    if s.name.endswith("_sum")
-                                ),
-                                0,
-                            )
-                            count_val = next(
-                                (
-                                    s.value
-                                    for s in samples
-                                    if s.name.endswith("_count")
-                                ),
-                                0,
-                            )
-                            if count_val > 0:
-                                avg_tpot = sum_val / count_val
-                                print(
-                                    f"[DEBUG] Extracted Avg TPOT from Histogram: {avg_tpot}s"
-                                )
-                                tpot_list.append(avg_tpot)
+            ttft_list.extend(_extract_histogram_avg(logger, "histogram_time_to_first_token"))
+            tpot_list.extend(_extract_histogram_avg(logger, "histogram_time_per_output_token"))
 
         # 2) Try per-request RequestOutput.metrics (true per-request metrics)
         metrics_found = 0
-        if outputs:
-            print(f"[DEBUG] Output count: {len(outputs)}")
-            if len(outputs) > 0:
-                print(f"[DEBUG] First output type: {type(outputs[0])}")
-                print(f"[DEBUG] First output dir: {dir(outputs[0])}")
-                print(f"[DEBUG] First output: {outputs[0]}")
-                try:
-                    print(
-                        f"[DEBUG] First output metrics: {outputs[0].metrics}"
-                    )
-                except AttributeError:
-                    print(
-                        "[DEBUG] First output has no metrics attribute"
-                    )
-
-            for request_output in outputs:
+        if all_outputs:
+            print(f"[DEBUG] Output count: {len(all_outputs)}")
+            for request_output in all_outputs:
                 metrics = getattr(request_output, "metrics", None)
                 if metrics is None:
                     continue
@@ -291,39 +226,42 @@ class VLLMProfiler:
 
             print(
                 f"[DEBUG] Request outputs with metrics: "
-                f"{metrics_found}/{len(outputs)}"
+                f"{metrics_found}/{len(all_outputs)}"
             )
 
         # ---- Aggregate stats (if lists are empty, just report 0) ----
+        def _percentile(values, pct):
+            if not values:
+                return None
+            vals = sorted(values)
+            k = (pct / 100.0) * (len(vals) - 1)
+            f = int(k)
+            c = min(f + 1, len(vals) - 1)
+            if c == f:
+                return vals[f]
+            return vals[f] + (vals[c] - vals[f]) * (k - f)
+
         stats = {
             "iteration_times": iteration_times,
             "avg_iteration_time": (
                 sum(iteration_times) / len(iteration_times)
                 if iteration_times
-                else 0
+                else None
             ),
             "min_iteration_time": min(iteration_times)
             if iteration_times
-            else 0,
+            else None,
             "max_iteration_time": max(iteration_times)
             if iteration_times
-            else 0,
+            else None,
             "ttft_avg": (
-                sum(ttft_list) / len(ttft_list) if ttft_list else 0
+                sum(ttft_list) / len(ttft_list) if ttft_list else None
             ),
             "tpot_avg": (
-                sum(tpot_list) / len(tpot_list) if tpot_list else 0
+                sum(tpot_list) / len(tpot_list) if tpot_list else None
             ),
-            "ttft_p99": (
-                sorted(ttft_list)[int(len(ttft_list) * 0.99)]
-                if ttft_list
-                else 0
-            ),
-            "tpot_p99": (
-                sorted(tpot_list)[int(len(tpot_list) * 0.99)]
-                if tpot_list
-                else 0
-            ),
+            "ttft_p99": _percentile(ttft_list, 99),
+            "tpot_p99": _percentile(tpot_list, 99),
         }
 
         stats_file = os.path.join(

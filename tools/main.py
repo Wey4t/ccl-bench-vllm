@@ -35,9 +35,6 @@ if __name__ == "__main__":
     elif metric_name == "tpot":
         from tpot.tpot import metric_cal
         metric_cal_func = metric_cal
-    elif metric_name == "mfu":
-        from mfu.mfu import metric_cal
-        metric_cal_func = metric_cal
     else:
         raise ValueError(f"Unsupported metric name: {metric_name}")
     

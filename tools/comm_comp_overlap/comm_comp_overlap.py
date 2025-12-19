@@ -17,9 +17,23 @@ def metric_cal(directory: str) -> float:
         float: Overlap percentage (0-100).
     """
 
-    trace_file = os.path.join(directory, "kineto_trace_0.json")
+    csv_candidates = [
+        os.path.join(directory, name)
+        for name in os.listdir(directory)
+        if name.startswith("cuda_gpu_trace") and name.endswith(".csv")
+    ]
+    json_candidates = [
+        os.path.join(directory, name)
+        for name in os.listdir(directory)
+        if name.startswith("kineto_trace_") and name.endswith(".json")
+    ]
+    trace_files = sorted(csv_candidates or json_candidates)
+    if not trace_files:
+        raise FileNotFoundError(f"No cuda_gpu_trace*.csv or kineto_trace_*.json found under {directory}")
 
-    try:
+    overlaps: List[float] = []
+
+    for trace_file in trace_files:
         with open(trace_file, 'r') as f:
             trace_data = json.load(f)
 
@@ -27,11 +41,12 @@ def metric_cal(directory: str) -> float:
         comm_events = []
         comp_events = []
 
-        comm_kernels = ["nccl", "AllReduce", "AllGather", "ReduceScatter", "AllToAll"]
+        comm_kernels = ["nccl", "allreduce", "allgather", "reducescatter", "alltoall"]
         comp_kernels = ["gemm", "conv", "matmul", "attention"]
 
         for event in trace_data.get("traceEvents", []):
-            if event.get("cat") != "kernel":
+            cat = str(event.get("cat", "")).lower()
+            if cat != "kernel":
                 continue
 
             name = event.get("name", "").lower()
@@ -51,8 +66,7 @@ def metric_cal(directory: str) -> float:
                 comp_events.append(event_info)
 
         if not comm_events or not comp_events:
-            print("Warning: No communication or computation events found")
-            return 0.0
+            raise ValueError(f"No communication or computation kernel events found in {trace_file}")
 
         # Calculate overlap
         total_comm_time = sum(end - start for start, end in comm_events)
@@ -72,15 +86,6 @@ def metric_cal(directory: str) -> float:
             overlap_pct = (overlap_time / total_comm_time) * 100
         else:
             overlap_pct = 0.0
+        overlaps.append(overlap_pct)
 
-        return overlap_pct
-
-    except FileNotFoundError:
-        print(f"File not found: {trace_file}")
-        return 0.0
-    except json.JSONDecodeError:
-        print(f"Error decoding JSON in file: {trace_file}")
-        return 0.0
-    except Exception as e:
-        print(f"Error calculating overlap: {e}")
-        return 0.0
+    return sum(overlaps) / len(overlaps)
