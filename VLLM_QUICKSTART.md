@@ -93,8 +93,8 @@ ls -lh trace_collection/
 ```bash
 # For each completed experiment
 python experiments/generate_workload_card.py \
-    --config experiments/configs/E1.1_llama-3.1-8b.yaml \
-    --output-dir trace_collection/llama-3.1-8b-vllm-perlmutter-E1.1
+    --config experiments/configs/E3.1_deepseek-v2-lite.yaml \
+    --output-dir trace_collection/deepseek-v2-lite-vllm-perlmutter-E3.1-1
 ```
 
 ### Step 6: Calculate Metrics

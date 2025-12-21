@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# Images and Plots
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+
+# Nsys Analysis and Traces
+*.nsys-rep
+*.sqlite
+nsys_max/
+plots_nsys/
+*.qdstrm
+
+# Traces
+*.trace.json.gz
+kineto_trace_*.json

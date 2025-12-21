@@ -14,5 +14,5 @@ data:
   seq_len: 8192
   max_tokens: 128
 warmup_iterations: 2
-profile_iterations: 10
+profile_iterations: 5
 output_dir: trace_collection/deepseek-v2-lite-vllm-perlmutter-E3.2

@@ -25,6 +25,14 @@ class VLLMProfiler:
         self.output_dir = self.config['output_dir']
         os.makedirs(self.output_dir, exist_ok=True)
 
+        # Set VLLM profiling environment variables to enable worker profiling
+        os.environ["VLLM_TORCH_PROFILER_DIR"] = self.output_dir
+        # Disable heavy profiling features to prevent timeouts
+        os.environ["VLLM_TORCH_PROFILER_WITH_STACK"] = "1"
+        os.environ["VLLM_TORCH_PROFILER_WITH_PROFILE_MEMORY"] = "0"
+        os.environ["VLLM_TORCH_PROFILER_RECORD_SHAPES"] = "0"
+        print(f"Enabled VLLM worker profiling. Traces will be saved to {self.output_dir}")
+
         # Get rank for multi-GPU setup
         self.rank = int(os.environ.get('LOCAL_RANK', 0))
 
@@ -43,7 +51,8 @@ class VLLMProfiler:
             gpu_memory_utilization=0.9,
             enforce_eager=True,
             enable_chunked_prefill=True,
-            enable_expert_parallel=True
+            enable_expert_parallel=True,
+            disable_log_stats=True
         )
 
         return llm
@@ -81,12 +90,14 @@ class VLLMProfiler:
             _ = llm.generate(prompts, sampling_params)
 
         # Profiled runs
-        profile_iters = self.config.get('profile_iterations', 3)
+        # Reduce iterations to avoid OOM/Timeout during tracing
+        profile_iters = min(self.config.get('profile_iterations', 3), 5)
+        print(f"[Rank {self.rank}] Profiling {profile_iters} iterations...")
 
         # Setup PyTorch ET observer
-        et_file = os.path.join(self.output_dir, f"torch_et_{self.rank}.json")
-        et = ExecutionTraceObserver()
-        et.register_callback(et_file)
+        # et_file = os.path.join(self.output_dir, f"torch_et_{self.rank}.json")
+        # et = ExecutionTraceObserver()
+        # et.register_callback(et_file)
 
         # Kineto trace handler
         def trace_handler(prof):
@@ -97,47 +108,54 @@ class VLLMProfiler:
         print(f"[Rank {self.rank}] Starting profiled iterations...")
 
         # Start execution trace observer
-        et.start()
+        # et.start()
 
-        # Profiling context
-        with profile(
-            activities=[
-                ProfilerActivity.CPU,
-                ProfilerActivity.CUDA,
-            ],
-            schedule=schedule(
-                wait=0,
-                warmup=0,
-                active=profile_iters,
-                repeat=1
-            ),
-            record_shapes=True,
-            profile_memory=True,
-            with_stack=True,
-            on_trace_ready=trace_handler
-        ) as prof:
+        # Start vLLM distributed profiling (triggers workers)
+        try:
+            llm.start_profile()
+            print(f"[Rank {self.rank}] Started vLLM worker profiling")
+        except Exception as e:
+            print(f"[Rank {self.rank}] Warning: Failed to start vLLM worker profiling: {e}")
 
-            iteration_times = []
+        # Start CUDA Profiler (for Nsys)
+        # try:
+        #     torch.cuda.profiler.start()
+        #     print(f"[Rank {self.rank}] Started CUDA Profiler")
+        # except Exception as e:
+        #     print(f"[Rank {self.rank}] Warning: Failed to start CUDA Profiler: {e}")
 
-            for iter_idx in range(profile_iters):
-                start_time = time.perf_counter()
+        iteration_times = []
 
-                # Run inference
-                outputs = llm.generate(prompts, sampling_params)
+        for iter_idx in range(profile_iters):
+            start_time = time.perf_counter()
 
-                end_time = time.perf_counter()
-                iter_time = end_time - start_time
-                iteration_times.append(iter_time)
+            # Run inference
+            outputs = llm.generate(prompts, sampling_params)
 
-                print(f"[Rank {self.rank}] Iteration {iter_idx}: {iter_time:.3f}s")
+            end_time = time.perf_counter()
+            iter_time = end_time - start_time
+            iteration_times.append(iter_time)
 
-                # Step profiler
-                prof.step()
+            print(f"[Rank {self.rank}] Iteration {iter_idx}: {iter_time:.3f}s")
+
+        # Stop CUDA Profiler (for Nsys)
+        # try:
+        #     torch.cuda.profiler.stop()
+        #     print(f"[Rank {self.rank}] Stopped CUDA Profiler")
+        # except Exception as e:
+        #     print(f"[Rank {self.rank}] Warning: Failed to stop CUDA Profiler: {e}")
+
+        # Stop profiling
+        try:
+            llm.stop_profile()
+            print(f"[Rank {self.rank}] Stopped vLLM worker profiling")
+        except Exception as e:
+            print(f"[Rank {self.rank}] Warning: Failed to stop vLLM worker profiling: {e}")
 
         # Stop execution trace observer
-        et.stop()
-        et.unregister_callback()
-        print(f"[Rank {self.rank}] Saved PyTorch ET trace to {et_file}")
+        # et.stop()
+        # et.unregister_callback()
+        # print(f"[Rank {self.rank}] Saved PyTorch ET trace to {et_file}")
 
         # Save iteration timing statistics
         stats = {
