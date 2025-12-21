@@ -27,6 +27,6 @@ export NCCL_DEBUG_SUBSYS=COLL,P2P,INIT
 
 # Run profiling
 srun python vllm_profiler.py \
-    --config experiments/configs/E1.1_llama8b_baseline.yaml
+    --config experiments/configs/E3.2_deepseek-v2-lite.yaml
 
-echo "Experiment E1.1 completed!"
+echo "Experiment E3.2 completed!"

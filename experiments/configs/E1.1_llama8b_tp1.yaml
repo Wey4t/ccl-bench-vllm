@@ -1,10 +1,10 @@
-experiment_id: E1.3
-description: Llama-8B tensor parallelism TP=4 on 4 GPUs
+experiment_id: E1.1
+description: Llama-8B baseline on 1 GPU (TP=1, PP=1, EP=1)
 model:
   name: meta-llama/Llama-3.1-8B
   precision: bfloat16
 parallelism:
-  tp: 4
+  tp: 1
   pp: 1
   dp_replicate: 1
   dp_shard: 1
@@ -15,4 +15,4 @@ data:
   max_tokens: 512
 warmup_iterations: 2
 profile_iterations: 5
-output_dir: trace_collection/llama-8b-tp4
+output_dir: trace_collection/llama-8b-tp1
